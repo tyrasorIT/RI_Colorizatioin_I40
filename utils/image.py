@@ -8,10 +8,15 @@ def rgb_to_lab(img):
     return lab
 
 def split_and_normalize(lab):
-    l = lab[:, :, 0] / 100.0
-    ab = lab[:, :, 1:] / 110.0
+    l = lab[:, :, 0]
+    ab = lab[:, :, 1:]
+
+    l = (l / 50.0) - 1.0    # Changed from l / 100.0
+    ab = ab / 110.0          # This was already correct
+
     l = torch.tensor(l).unsqueeze(0)
     ab = torch.tensor(ab).permute(2, 0, 1)
+    
     return l, ab
 
 def lab_to_rgb_torch(L, ab):

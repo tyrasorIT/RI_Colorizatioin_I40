@@ -48,7 +48,7 @@ class Autoencoder(nn.Module):
     def forward(self, x):
         code = self.encoder(x)
         return self.decoder(code)
-    
+
 class UNetAutoencoder(nn.Module):
     def __init__(self, in_ch=1, out_ch=2):
         super().__init__()
@@ -103,6 +103,14 @@ def conv_block(in_ch, out_ch):
         nn.ReLU(inplace=True),
     )
 
+# class ConvBlock(nn.Module):
+#     def __init__(self, nf, ni, submodule=None, input_c=None, dropout=False, innermost=False, outermost=False):
+#         super().__init__()
+
+#         self.outermost = outermost
+#         if input_c is None: input_c = nf
+#         dowconv = nn.Conv2d(input_c, ni, kernel_size=4, stride=2, padding=1, bias=False)
+
 
 class UNetColorization(nn.Module):
     """
@@ -136,6 +144,7 @@ class UNetColorization(nn.Module):
 
         # Output: 2 channels (ab), NO Tanh here
         self.out_conv = nn.Conv2d(base_ch, out_ch, kernel_size=1)
+        self.tanh = nn.Tanh()                             # constrain output to [-1, 1], correct range for LAB space
 
     def forward(self, x):
         # x: (N, 1, H, W) L-channel
@@ -160,13 +169,11 @@ class UNetColorization(nn.Module):
         d1 = self.dec1(torch.cat([u1, e1], dim=1))
 
         out = self.out_conv(d1)   # (N, 2, H, W)
+        out = self.tanh(out)      # constrain output to [-1, 1], correct range for LAB space
+
         return out
 
 class ResNetUNetColorization(nn.Module):
-    """
-    Colorization network with a ResNet-18 encoder (pretrained on ImageNet)
-    and a U-Net style decoder. Input: L (N,1,H,W). Output: ab (N,2,H,W).
-    """
     def __init__(self, out_ch=2, pretrained=True):
         super().__init__()
 
@@ -212,6 +219,7 @@ class ResNetUNetColorization(nn.Module):
         self.dec0 = self._dec_block(32, 32)
 
         self.out_conv = nn.Conv2d(32, out_ch, kernel_size=1)
+        self.tanh = nn.Tanh()                             # constrain output to [-1, 1], correct range for LAB space
 
     @staticmethod
     def _dec_block(in_ch, out_ch):
@@ -255,4 +263,5 @@ class ResNetUNetColorization(nn.Module):
         d0 = self.dec0(d0)
 
         out = self.out_conv(d0)                   # (N,2,H,W)
+        out = self.tanh(out)      # constrain output to [-1, 1], correct range for LAB space
         return out

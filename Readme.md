@@ -10,3 +10,7 @@ Korak 1: Instalirati python 3.12 kroz python manager
 Korak 2: Instalacija potrebnih paketa
 
     py -3.12 -m pip install -r requirements.txt
+
+Korak 3: Pokrenuti sa
+
+    torchrun --nproc_per_node=3 main.py

@@ -8,3 +8,5 @@ wmi
 kornia
 piq
 pycocotools
+spacy<3.8
+fastai
