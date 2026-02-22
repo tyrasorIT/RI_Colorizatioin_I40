@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torchvision.models as models
 import torch
 
 class customGANLoss(nn.Module):

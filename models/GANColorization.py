@@ -2,9 +2,10 @@ from torch import nn
 import torch
 from torchvision import models
 from utils.model import initModel
-from customAutoencoder import UNetColorization, ResNetUNetColorization
+from .ResNetUNetColorization import ResNetUNetColorization
+from .UNetColorization import UNetColorization
 from .discriminators import PatchDiscriminator
-from customGANLoss import customGANLoss
+from losses.customGANLoss import customGANLoss
 from torch import optim
 
 class GANColorization(nn.Module):
