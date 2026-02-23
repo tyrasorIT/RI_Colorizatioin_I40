@@ -24,8 +24,7 @@ class Config:
             self.configFile = Path(configFile)
             self.config = self._load_config()
             self.validator = DatasetValidator(self.config["dataset"]["path"])
-            if self.mode != self.RunMode.INIT:
-                self._checkDataset()
+            self._checkDataset()
         except RuntimeError as e:
             print(f"RuntimeError: {e}")
             exit(1)
