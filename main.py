@@ -67,7 +67,7 @@ if __name__ == "__main__":
     testData = COCO_LAB(size=imSize, split="val")
     batchSize = 256
     numEpochs = 100
-    pretrainedGeneratorPath= "resnet_fastai_unet_pretrained.pt"
+    pretrainedGeneratorPath= "./pretrainedModelCheckpoints/resnet_fastai_unet_pretrained.pt"
     generatorType = "fastai"
     formattedTime = datetime.now().strftime("%d%m%Y%H%M")
     modelPath = f"colorizer_{generatorType}_epoch{numEpochs}_{formattedTime}.pth"

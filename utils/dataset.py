@@ -30,7 +30,7 @@ def _downloadFileResumable(url: str, destPath):
 
     if downloadedSize >= totalSize and totalSize > 0:
         os.rename(tempPath, destPath)
-        print(f"Download already complete: {destPath}")
+        print(f"[Downloader] Download already complete: {destPath}")
         return
     
     headers = {
@@ -56,7 +56,7 @@ def _downloadFileResumable(url: str, destPath):
 
 
     os.rename(tempPath, destPath)
-    print(f"Download Finished: {destPath}")
+    print(f"[Downloader] Download Finished: {destPath}")
     
 def _downloadCOCOBySplit(split: str = "train"):
     projectRoot = _get_project_root()
@@ -98,7 +98,7 @@ class COCO_LAB(Dataset):
         root = _downloadCOCOBySplit(split=self.split)
         
         if not os.path.exists(root):
-            raise RuntimeError(f"Dataset path does not exist: {root}")
+            raise RuntimeError(f"[COCO] Dataset path does not exist: {root}")
 
         if split == "train":
             self.transform = transforms.Compose([
@@ -118,9 +118,9 @@ class COCO_LAB(Dataset):
         ])
 
         if len(self.image_paths) == 0:
-            raise RuntimeError(f"No images found in {root}")
+            raise RuntimeError(f"[COCO] No images found in {root}")
 
-        print(f"[COCO_LAB] Loaded {len(self.image_paths)} images from {root}")
+        print(f"[COCO] Loaded {len(self.image_paths)} images from {root}")
 
     def __len__(self):
         return len(self.image_paths)

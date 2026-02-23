@@ -14,13 +14,13 @@ class Config:
             device = torch.device(f"cuda:{self.local_rank}")
             self.use_ddp = True
             if self.local_rank == 0:
-                print("Using multiGPU setup!")
+                print("[Config] Using multiGPU setup!")
         elif torch.cuda.is_available():
             device = torch.device('cuda:0')
-            print("Using single GPU setup!")
+            print("[Config] Using single GPU setup!")
         else:
             device = torch.device('cpu')
-            print("Warning: Using CPU!")
+            print("[Config] Warning: Using CPU!")
 
         return device
     
