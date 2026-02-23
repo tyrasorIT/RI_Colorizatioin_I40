@@ -66,7 +66,7 @@ class Config:
 
     def _getDevice(self):
         if 'LOCAL_RANK' in os.environ:
-            if self.mode in ["init"]:
+            if self.mode in [self.RunMode.INIT]:
                 raise RuntimeError("[CONFIG] Distributed mode cannot be used for initialization!")
             self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
             torch.cuda.set_device(self.local_rank)
@@ -80,7 +80,7 @@ class Config:
         else:
             device = torch.device('cpu')
             print("[CONFIG] Warning: Using CPU!")
-            if self.mode in ["train"]:
+            if self.mode in [self.RunMode.TRAIN]:
                 raise RuntimeError("[CONFIG] The CPU cannot be used for training of this model!")
 
         return device
