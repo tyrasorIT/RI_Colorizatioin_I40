@@ -5,13 +5,17 @@ from torchvision.models.resnet import resnet18
 from fastai.vision.models.unet import DynamicUnet
 
 def saveModel(savePath, model: torch.nn.Module, numEpochs):
-    
     torch.save({
         "model_state_dict": model.state_dict(),
         "epoch": numEpochs,
     }, savePath)
 
     print("Saved model to", savePath)
+
+def loadModelCheckpoint(device, modelPath: str, model: torch.nn.Module):
+    
+    checkpoint = torch.load(modelPath, map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
 
 def initWeights(net, init='norm', gain=0.02):
     def init_func(m):

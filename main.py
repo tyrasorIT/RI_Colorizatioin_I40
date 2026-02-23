@@ -1,8 +1,4 @@
-import os
-import time
 from typing import List
-from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
 from utils.dataset import COCO_LAB
 import torch
 import torch.distributed as tdist
@@ -10,107 +6,29 @@ from datetime import datetime
 from torch import nn
 from models.ResNetUNetColorization import ResNetUNetColorization
 from pretrainers.pretrainGenerator import pretrainGenerator
-from utils.results import show_results2, visualize, colorizeFromImage, show_results3, show_results4
-from utils.model import saveModel, buildResNetFastAi
+from utils.results import colorizeFromImage, show_results3, show_results4
+from utils.model import saveModel, buildResNetFastAi, loadModelCheckpoint
 from models.GANColorization import GANColorization
-from utils.lossTrack import create_loss_meters, update_losses, log_results
-from tqdm import tqdm
-from colorization.colorizers import eccv16, siggraph17
-from config import LOCAL_RANK
+from external.colorization.colorizers import eccv16, siggraph17
+from config import CONFIG
+from trainers.GANTrainer import GANTrainer
 
-local_rank = int(os.environ["LOCAL_RANK"])
-
-def mainTrainer2(device, trainData, testData, batchSize = 64, numEpochs = 50, displayEvery=200, pretrainedGeneratorPath=None, generatorType=None):
-    # batch size and loaders
-    trainSampler = DistributedSampler(trainData)
-    testSampler = DistributedSampler(testData, shuffle=False)
-
-    trainLoader = DataLoader(trainData, batch_size=batchSize, sampler=trainSampler, num_workers=8, pin_memory=True, persistent_workers=True, shuffle=False)
-    testLoader = DataLoader(testData, batch_size=batchSize, sampler=testSampler, num_workers=8, pin_memory=True, persistent_workers=True)
-
-    if pretrainedGeneratorPath is not None:
-        if generatorType == "customResnet":
-            generatorNet = ResNetUNetColorization(out_ch=2, pretrained=True)
-            checkpoint = torch.load(pretrainedGeneratorPath, map_location=device)
-            generatorNet.load_state_dict(checkpoint["model_state_dict"])
-        elif generatorType == "fastai":
-            generatorNet = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
-            checkpoint = torch.load(pretrainedGeneratorPath, map_location=device)
-            generatorNet.load_state_dict(checkpoint["model_state_dict"])
-    else:
-        generatorNet = "resnet"
-    model = GANColorization(device, generatorNet=generatorNet)
-    model = torch.nn.parallel.DistributedDataParallel(
-        model, device_ids=[local_rank]
-    )
-
-    epochTimes = []
-
-    for epoch in range(numEpochs):
-        model.train()
-        trainSampler.set_epoch(epoch)
-        loss_meter_dict = create_loss_meters()
-        i = 0
-        start = time.time()
-        if local_rank == 0:
-            print(f"Epoch {epoch+1}: ")
-
-        for data in tqdm(trainLoader, disable=(local_rank != 0), dynamic_ncols=True):
-            insideModel = model.module
-            insideModel.setupInput(data)
-            insideModel.optimize()
-            update_losses(insideModel, loss_meter_dict, count=data[0].size(0))
-            i +=1
-            if local_rank == 0 and (i % displayEvery == 0):
-                print(f"\nEpoch {epoch+1}/{numEpochs}")
-                print(f"Iteration {i}/{len(trainLoader)}")
-                log_results(loss_meter_dict) # function to print out the losses
-                visualize(device, insideModel, data, 6, output_dir="./results/midtrain2")
-
-        end = time.time()
-        epochDuration = end - start
-        epochTimes.append(epochDuration)
-
-        # Estimate remaining time
-        avgEpochTime = sum(epochTimes) / len(epochTimes)
-        remainingEpochs = numEpochs - (epoch + 1)
-        etaSeconds = avgEpochTime * remainingEpochs
-
-        # Convert to readable time
-        eta_h = etaSeconds // 3600
-        eta_m = (etaSeconds % 3600) // 60
-        eta_s = int(etaSeconds % 60)
-        if local_rank == 0:
-            print(f"Epoch took {epochDuration:.2f} sec")
-            print(f"Estimated time remaining: {int(eta_h)}h {int(eta_m)}m {eta_s}s")
-            print(f"\nEpoch {epoch+1}/{numEpochs}")
-            print(f"Iteration {i}/{len(trainLoader)}")
-            log_results(loss_meter_dict) # function to print out the losses
-
-    return model
-
-def loadModelAndDisplaySelectedResults3(device, modelPath: str, testData, idxList: List[int], size, pretrainedGeneratorPath=None, generatorType=None):
-    # Load checkpoint first to check what we have
-    mainModelCheckpoint = torch.load(modelPath, map_location=device)
-    
+def displaySelectedResults3(device, modelPath: str, testData, idxList: List[int], size, pretrainedGeneratorPath=None, generatorType=None):
     # Create model with pretrained=False since we're loading trained weights
 
     if pretrainedGeneratorPath is not None:
         if generatorType == "pretrainedResnet":
             generatorNet = ResNetUNetColorization(out_ch=2, pretrained=True)
-            checkpoint = torch.load(pretrainedGeneratorPath, map_location=device)
-            generatorNet.load_state_dict(checkpoint["model_state_dict"])
         elif generatorType == "fastai":
             generatorNet = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
-            checkpoint = torch.load(pretrainedGeneratorPath, map_location=device)
-            generatorNet.load_state_dict(checkpoint["model_state_dict"])
+
+        loadModelCheckpoint(device, pretrainedGeneratorPath, generatorNet)
     else:
         generatorNet = "resnet"
 
     model_wrapper = GANColorization(device, generatorNet=generatorNet)
     
-    # Now load the trained weights
-    model_wrapper.load_state_dict(mainModelCheckpoint["model_state_dict"])
+    loadModelCheckpoint(device, modelPath, model_wrapper)
     model_wrapper.eval()
     model_wrapper.generatorNet.eval()
 
@@ -123,15 +41,14 @@ def loadModelAndDisplaySelectedResults3(device, modelPath: str, testData, idxLis
     for i in idxList:
         show_results3(device, model_wrapper, testData, idx=i, size=size)
 
-def loadModelAndSaveFromImage(device, modelPath: str, imagePath: str, size):
+def colorizeFromImage(device, modelPath: str, imagePath: str, size):
     model = GANColorization(device, generatorNet="resnet")
 
-    checkpoint = torch.load(modelPath, map_location=device)
-    model.load_state_dict(checkpoint["model_state_dict"])
+    loadModelCheckpoint(device, modelPath, model)
 
     colorizeFromImage(device, model, imagePath, size)
 
-def loadIndustrialModelAndDisplaySelectedResults(device, testData, idxList: List[int], size):
+def displayIndustrialModelResults(device, testData, idxList: List[int], size):
     colorizer_eccv16 = eccv16(pretrained=True).to(device)
     colorizer_siggraph17 = siggraph17(pretrained=True).to(device)
 
@@ -139,13 +56,11 @@ def loadIndustrialModelAndDisplaySelectedResults(device, testData, idxList: List
         show_results4(device, colorizer_eccv16, colorizer_siggraph17, testData, idx=i, size=size)
 
 if __name__ == "__main__":
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    torch.cuda.set_device(LOCAL_RANK)
-    device = torch.device(f"cuda:{LOCAL_RANK}")
     torch.backends.cudnn.benchmark = True
 
-    tdist.init_process_group(backend="nccl")
+    if CONFIG.IS_DDP:
+        tdist.init_process_group(backend="nccl")
 
     imSize=256
     trainData = COCO_LAB(size=imSize, split="train")
@@ -162,28 +77,29 @@ if __name__ == "__main__":
     mode = 2 #1 is train, 0 is show #2 is new train #3 is new show
 
     if mode == 2:
-        model = mainTrainer2(device, trainData, testData, batchSize = batchSize, numEpochs = numEpochs, displayEvery=100, pretrainedGeneratorPath=pretrainedGeneratorPath, generatorType=generatorType)
-        if LOCAL_RANK == 0:
+        model = GANTrainer(CONFIG.DEVICE, trainData, testData, batchSize = batchSize, numEpochs = numEpochs, displayEvery=100, pretrainedGeneratorPath=pretrainedGeneratorPath, generatorType=generatorType)
+        if CONFIG.LOCAL_RANK == 0:
             saveModel(modelPath, model.module, numEpochs) 
-            show_results2(device, model.module, testData, idx = 1, size=imSize)
+            show_results3(CONFIG.DEVICE, model.module, testData, idx = 1, size=imSize)
     elif mode == 3:
-        if LOCAL_RANK == 0:
-            loadModelAndDisplaySelectedResults3(device, modelPath, testData, fullRangeToDisplay, size=imSize, pretrainedGeneratorPath=pretrainedGeneratorPath, generatorType=generatorType)
+        if CONFIG.LOCAL_RANK == 0:
+            displaySelectedResults3(CONFIG.DEVICE, modelPath, testData, fullRangeToDisplay, size=imSize, pretrainedGeneratorPath=pretrainedGeneratorPath, generatorType=generatorType)
     elif mode == 4:
-        if LOCAL_RANK == 0:
+        if CONFIG.LOCAL_RANK == 0:
             imagePath = "examples/example1_bw.jpeg"
-            loadModelAndSaveFromImage(device, modelPath, imagePath, size=imSize)
+            colorizeFromImage(CONFIG.DEVICE, modelPath, imagePath, size=imSize)
     elif mode == 6:
-        model = pretrainGenerator(device, generatorType, trainData, batchSize=384, numEpochs=20)
-        if LOCAL_RANK == 0:
+        model = pretrainGenerator(CONFIG.DEVICE, generatorType, trainData, batchSize=384, numEpochs=20)
+        if CONFIG.LOCAL_RANK == 0:
             saveModel("resnet_unet_pretrained.pt", model.module, numEpochs)
     elif mode == 7:
-        model = pretrainGenerator(device, generatorType, trainData, batchSize=256, numEpochs=20)
-        if LOCAL_RANK == 0:
+        model = pretrainGenerator(CONFIG.DEVICE, generatorType, trainData, batchSize=256, numEpochs=20)
+        if CONFIG.LOCAL_RANK == 0:
             saveModel("resnet_fastai_unet_pretrained.pt", model.module, numEpochs)
     elif mode == 8:
-        if LOCAL_RANK == 0:
-            loadIndustrialModelAndDisplaySelectedResults(device, testData, fullRangeToDisplay, imSize)
+        if CONFIG.LOCAL_RANK == 0:
+            displayIndustrialModelResults(CONFIG.DEVICE, testData, fullRangeToDisplay, imSize)
 
-    tdist.destroy_process_group()
+    if CONFIG.IS_DDP:
+        tdist.destroy_process_group()
     

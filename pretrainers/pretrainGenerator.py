@@ -6,7 +6,7 @@ from torch import optim
 from models.ResNetUNetColorization import ResNetUNetColorization
 from utils.model import buildResNetFastAi
 from tqdm import tqdm
-from config import LOCAL_RANK
+from config import CONFIG
 
 def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numEpochs=20):
     # Create DataLoader
@@ -30,7 +30,7 @@ def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numE
         RuntimeError("No generator selected! Exiting!")
 
     generator = torch.nn.parallel.DistributedDataParallel(
-        generator, device_ids=[LOCAL_RANK]
+        generator, device_ids=[CONFIG.LOCAL_RANK]
     )
 
     optimizer = optim.Adam(generator.parameters(), lr=1e-4)
@@ -46,11 +46,11 @@ def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numE
         epoch_loss = 0
         num_batches = 0
         
-        if LOCAL_RANK == 0:
+        if CONFIG.LOCAL_RANK == 0:
             start = time.time()
             print(f"Epoch {epoch+1}: ")
         
-        for data in tqdm(trainLoader, disable=(LOCAL_RANK != 0), dynamic_ncols=True):
+        for data in tqdm(trainLoader, disable=(CONFIG.LOCAL_RANK != 0), dynamic_ncols=True):
             L, ab = data  # Unpack tuple from COCO_LAB
             L, ab = L.to(device), ab.to(device)
             
@@ -66,7 +66,7 @@ def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numE
             epoch_loss += loss.item()
             num_batches += 1
         
-        if LOCAL_RANK == 0:
+        if CONFIG.LOCAL_RANK == 0:
             end = time.time()
             epochDuration = end - start
             epochTimes.append(epochDuration)

@@ -1,6 +1,5 @@
 from torch import nn
 import torch
-from torchvision import models
 from utils.model import initModel
 from .ResNetUNetColorization import ResNetUNetColorization
 from .UNetColorization import UNetColorization

@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch
 
 class PatchDiscriminator(nn.Module):
     def __init__(self, inCh, numFilters=64, nDown=3):

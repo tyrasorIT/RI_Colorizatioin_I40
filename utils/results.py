@@ -8,59 +8,7 @@ import os
 import time
 import PIL
 from torchvision import transforms
-from colorization.colorizers import *
-
-def show_results(device, model: torch.nn.Module, data, idx, size, output_dir="./results"):
-    model.eval()
-    l, ab = data[idx]
-
-    with torch.no_grad():
-        # Predict ab
-        os.makedirs(output_dir, exist_ok=True)
-
-        predAB = model(l.unsqueeze(0).to(device))[0].cpu()
-
-        # Undo normalization
-        imgL = (l.squeeze(0).numpy() * 100.0)
-        imgPredAB = predAB.clone()
-        imgPredAB[0] *= 110.0
-        imgPredAB[1] *= 110.0
-        imgPredAB = imgPredAB.permute(1, 2, 0).numpy()
-
-        imgAB = ab.clone()
-        imgAB[0] *= 110.0
-        imgAB[1] *= 110.0
-        imgAB = imgAB.permute(1, 2, 0).numpy()
-
-        # Convert LAB → RGB
-        realLAB = np.zeros((size,size,3))
-        labPredAB = np.zeros((size,size,3))
-        realLAB[:,:,0] = imgL
-        realLAB[:,:,1:] = imgAB
-        labPredAB[:,:,1:] = imgPredAB
-        labPredAB[:,:,0] = imgL
-        realRGB = color.lab2rgb(realLAB)
-        predRGB = color.lab2rgb(labPredAB)
-
-        plt.figure(figsize=(12,4))
-        plt.subplot(1,3,1)
-        plt.title("Black & white")
-        plt.imshow(imgL, cmap="gray")
-        plt.axis("off")
-        plt.subplot(1,3,2)
-        plt.title("Predicted RGB")
-        plt.imshow(predRGB)
-        plt.axis("off")
-        plt.subplot(1,3,3)
-        plt.title("Real RGB")
-        plt.imshow(realRGB)
-        plt.axis("off")
-
-        output_path = os.path.join(output_dir, f"result_{idx}.png")
-        plt.savefig(output_path, bbox_inches="tight", dpi=150)
-        plt.close()
-
-        #plt.show()
+from external.colorization.colorizers import *
 
 def lab_to_rgb(L, ab):
     """
@@ -76,56 +24,9 @@ def lab_to_rgb(L, ab):
         rgb_imgs.append(img_rgb)
     return np.stack(rgb_imgs, axis=0)
 
-def show_results2(device, model: torch.nn.Module, data, idx, size, output_dir="./results"):
-    model.generatorNet.eval()
-    l, ab = data[idx]
-    os.makedirs(output_dir, exist_ok=True)
-
-    Lb = l.unsqueeze(0).to(device)  
-
-    with torch.no_grad():
-        # Predict ab
-
-        pred_ab = model.generatorNet(Lb)
-
-    # Predicted RGB
-    pred_rgb = lab_to_rgb(Lb.cpu(), pred_ab.cpu())[0]  # [H,W,3] (assuming your helper does this)
-
-    # Real RGB (optional comparison)
-    real_rgb = lab_to_rgb(Lb.cpu(), ab.unsqueeze(0).cpu())[0]
-
-    # L for display (optional): convert [-1,1] -> [0,1]
-    L_vis = ((l.squeeze(0).cpu() + 1.0) * 0.5).clamp(0, 1)
-
-    # Plot + save
-    plt.figure(figsize=(12, 4))
-
-    plt.subplot(1, 3, 1)
-    plt.title("Input (L)")
-    plt.imshow(L_vis, cmap="gray")
-    plt.axis("off")
-
-    plt.subplot(1, 3, 2)
-    plt.title("Predicted RGB")
-    plt.imshow(pred_rgb)
-    plt.axis("off")
-
-    plt.subplot(1, 3, 3)
-    plt.title("Real RGB")
-    plt.imshow(real_rgb)
-    plt.axis("off")
-
-    output_path = os.path.join(output_dir, f"result_{idx}.png")
-    plt.savefig(output_path, bbox_inches="tight", dpi=150)
-    plt.close()
-
 def show_results3(device, model: torch.nn.Module, data, idx, size, output_dir="./results"):
     model.generatorNet.eval()
     l, ab = data[idx]
-
-      # DEBUG: Check L channel range
-    print(f"L min: {l.min():.3f}, L max: {l.max():.3f}")
-    print(f"L mean: {l.mean():.3f}")
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -199,16 +100,6 @@ def show_results4(device, eccv16: ECCVGenerator, siggraph17: SIGGRAPHGenerator, 
         pred_ab_eccv16 = eccv16(tens_l_rs.to(device))
         pred_ab_siggraph17 = siggraph17(tens_l_rs.to(device))
 
-    # # Predicted RGB
-    # pred_rgb_eccv16 = lab_to_rgb(Lb.cpu(), pred_ab_eccv16.cpu())[0]  # [H,W,3] (assuming your helper does this)
-    # pred_rgb_siggraph17 = lab_to_rgb(Lb.cpu(), pred_ab_siggraph17.cpu())[0]  # [H,W,3] (assuming your helper does this)
-
-    # # Real RGB (optional comparison)
-    # real_rgb = lab_to_rgb(Lb.cpu(), ab.unsqueeze(0).cpu())[0]
-
-    # # L for display (optional): convert [-1,1] -> [0,1]
-    # L_vis = ((l.squeeze(0).cpu() + 1.0) * 0.5).clamp(0, 1)
-
     img_bw = postprocess_tens(tens_l_orig, torch.cat((0*tens_l_orig,0*tens_l_orig),dim=1))
     out_img_eccv16 = postprocess_tens(tens_l_orig, pred_ab_eccv16.cpu())
     out_img_siggraph17 = postprocess_tens(tens_l_orig, pred_ab_siggraph17.cpu())
@@ -240,7 +131,7 @@ def show_results4(device, eccv16: ECCVGenerator, siggraph17: SIGGRAPHGenerator, 
     plt.close()
 
 
-def visualize(device, model: torch.nn.Module, data, num_images: int = 5, output_dir="./results/midtrain"):
+def visualize(model: torch.nn.Module, data, num_images: int = 5, output_dir="./results/midtrain"):
 
     os.makedirs(output_dir, exist_ok=True)
 
