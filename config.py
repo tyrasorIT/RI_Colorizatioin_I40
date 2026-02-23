@@ -119,7 +119,7 @@ class Config:
                         "initialized": False,
                         "trainSize": 0,
                         "valSize": 0,
-                        "last_verified": None,
+                        "lastVerified": None,
                         "path": "./data/coco"
                     }
                 }
