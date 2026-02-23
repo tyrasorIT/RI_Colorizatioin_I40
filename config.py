@@ -99,7 +99,7 @@ class Config:
 
             self.config["dataset"]["initialized"] = True
             self.config["dataset"]["trainSize"] = datasetInfo["trainSize"]
-            self.config["dataset"]["valSize"] = datasetInfo["trainSize"]
+            self.config["dataset"]["valSize"] = datasetInfo["valSize"]
             self.config["dataset"]["lastVerified"] = datasetInfo["lastVerified"]
 
             self._save_config()
