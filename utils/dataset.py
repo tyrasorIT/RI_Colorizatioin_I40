@@ -192,7 +192,7 @@ class DatasetValidator:
         
         return len([
             f for f in os.listdir(folder)
-            if f.lower().endswith(".jpg", ".jpeg", "png")
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
         ])
         
 
