@@ -69,7 +69,8 @@ if __name__ == "__main__":
     numEpochs = 100
     pretrainedGeneratorPath= "resnet_fastai_unet_pretrained.pt"
     generatorType = "fastai"
-    modelPath = f"colorizer_{generatorType}_epoch{numEpochs}_{datetime.now().strftime("%d%m%Y%H%M")}.pth"
+    formattedTime = datetime.now().strftime("%d%m%Y%H%M")
+    modelPath = f"colorizer_{generatorType}_epoch{numEpochs}_{formattedTime}.pth"
     imgToDisplay = [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
     imgToDisplayTrain = [21, 23, 25, 27, 29, 31, 33, 35, 37, 39]
     fullRangeToDisplay = imgToDisplay + imgToDisplayTrain
