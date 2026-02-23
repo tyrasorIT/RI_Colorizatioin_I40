@@ -66,6 +66,8 @@ class Config:
 
     def _getDevice(self):
         if 'LOCAL_RANK' in os.environ:
+            if self.mode in ["init"]:
+                raise RuntimeError("[CONFIG] Distributed mode cannot be used for initialization!")
             self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
             torch.cuda.set_device(self.local_rank)
             device = torch.device(f"cuda:{self.local_rank}")
