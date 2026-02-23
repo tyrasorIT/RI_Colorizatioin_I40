@@ -23,8 +23,9 @@ class Config:
             self.device = self._getDevice()
             self.configFile = Path(configFile)
             self.config = self._load_config()
-            self.validator = DatasetValidator(self.config["dataset"]["path"])
-            self._checkDataset()
+            if self.local_rank == 0: #Ugly fix, consider moving from global to main config
+                self.validator = DatasetValidator(self.config["dataset"]["path"])
+                self._checkDataset()
         except RuntimeError as e:
             print(f"RuntimeError: {e}")
             exit(1)
