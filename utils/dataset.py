@@ -18,7 +18,7 @@ def _get_project_root():
     return Path(__file__).resolve().parent.parent
 
 def _downloadFileResumable(url: str, destPath):
-    tempPath = temp_path = destPath.with_suffix(destPath.suffix + ".part")
+    tempPath = destPath.with_suffix(destPath.suffix + ".part")
 
     response = requests.head(url)
     totalSize = int(response.headers.get('content-length', 0))

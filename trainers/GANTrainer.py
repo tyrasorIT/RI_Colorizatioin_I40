@@ -7,14 +7,15 @@ from utils.model import buildResNetFastAi, loadModelCheckpoint
 import torch
 from utils.lossTrack import create_loss_meters, update_losses, log_results
 import time
+import os
+from datetime import datetime
 from tqdm import tqdm
 from utils.results import visualize
 
 def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, displayEvery=200, pretrainedGeneratorPath=None, generatorType=None):
     
-    if CONFIG.USE_DDP:
-        trainSampler = DistributedSampler(trainData)
-        testSampler = DistributedSampler(testData, shuffle=False)
+    trainSampler = DistributedSampler(trainData) if CONFIG.USE_DDP else None
+    testSampler = DistributedSampler(testData, shuffle=False) if CONFIG.USE_DDP else None
 
     trainLoader = DataLoader(trainData, batch_size=batchSize, sampler=trainSampler, num_workers=8, pin_memory=True, persistent_workers=True, shuffle=False if CONFIG.USE_DDP else True)
     testLoader = DataLoader(testData, batch_size=batchSize, sampler=testSampler, num_workers=8, pin_memory=True, persistent_workers=True)
@@ -37,11 +38,17 @@ def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, disp
 
     epochTimes = []
 
+    if CONFIG.LOCAL_RANK == 0:
+        folderTime = datetime.now().strftime("%d%m%Y%H%M")
+        outputDir = f"./results/midtrainViz_{folderTime}"
+        os.makedirs(outputDir, exist_ok=True)
+
     for epoch in range(numEpochs):
         model.train()
 
         if CONFIG.USE_DDP:
             trainSampler.set_epoch(epoch)
+            testSampler.set_epoch(epoch)
 
         loss_meter_dict = create_loss_meters()
         i = 0
@@ -59,7 +66,7 @@ def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, disp
                 print(f"\nEpoch {epoch+1}/{numEpochs}")
                 print(f"Iteration {i}/{len(trainLoader)}")
                 log_results(loss_meter_dict) # function to print out the losses
-                visualize(insideModel, data, 6, output_dir="./results/midtrain2")
+                visualize(insideModel, data, 6, output_dir=outputDir)
 
         end = time.time()
         epochDuration = end - start
