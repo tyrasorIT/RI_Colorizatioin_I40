@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
     torch.backends.cudnn.benchmark = True
 
-    if CONFIG.IS_DDP:
+    if CONFIG.USE_DDP:
         tdist.init_process_group(backend="nccl")
 
     imSize=256
@@ -101,6 +101,6 @@ if __name__ == "__main__":
         if CONFIG.LOCAL_RANK == 0:
             displayIndustrialModelResults(CONFIG.DEVICE, testData, fullRangeToDisplay, imSize)
 
-    if CONFIG.IS_DDP:
+    if CONFIG.USE_DDP:
         tdist.destroy_process_group()
     
