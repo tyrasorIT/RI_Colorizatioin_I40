@@ -5,3 +5,6 @@
 #Ignore compiled python files 
 *.py[cod]
 *$py.class
+
+#Ignore local config files
+.config.json

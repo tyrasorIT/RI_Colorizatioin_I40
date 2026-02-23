@@ -8,6 +8,7 @@ import requests
 from tqdm import tqdm
 from pathlib import Path
 import zipfile
+from datetime import datetime
 
 COCO_URLS = {
     "train": "http://images.cocodataset.org/zips/train2017.zip",
@@ -80,8 +81,16 @@ def _downloadCOCOBySplit(split: str = "train"):
     _downloadFileResumable(url, zipPath)
 
     print(f"[COCO] Extracting {split}2017...")
+    # with zipfile.ZipFile(zipPath, 'r') as zipRef:
+    #     zipRef.extractall(root)
     with zipfile.ZipFile(zipPath, 'r') as zipRef:
-        zipRef.extractall(root)
+        members = zipRef.infolist()
+        total_size = sum(m.file_size for m in members)
+
+        with tqdm(total=total_size, unit="B", unit_scale=True, desc="Extracting") as pbar:
+            for member in members:
+                zipRef.extract(member, root)
+                pbar.update(member.file_size)
 
     print(f"[COCO] Done")
     return str(extractPath)
@@ -136,6 +145,56 @@ class COCO_LAB(Dataset):
         ab = img_lab[[1, 2], ...] / 110. # Between -1 and 1
 
         return L, ab
+    
+class DatasetValidator:
+    def __init__(self, basePath: str):
+        self.basePath = Path(basePath)
+
+    def checkExists(self):
+        trainPath = os.path.join(self.basePath, "train2017")
+        valPath = os.path.join(self.basePath, "val2017")
+
+        trainExists = os.path.exists(trainPath)
+        valExists = os.path.exists(valPath)
+
+        if not trainExists or not valExists:
+            return False
+        
+        self.trainPath = trainPath
+        self.valPath = valPath
+
+        return True
+    
+    def getDatasetInfo(self):
+
+        if not self.basePath.exists():
+            print("[DATASET] Dataset base does not exist. Initialization required.")
+            return {}
+        
+        trainSize = self.countImages(self.trainPath)
+        valSize = self.countImages(self.valPath)
+
+        if trainSize == 0 or valSize == 0:
+            print("[DATASET] Dataset folders empty. Initialization required.")
+            return {}
+        
+        lastVerified = datetime.now().isoformat()
+        
+        return {
+            "trainSize": trainSize,
+            "valSize": valSize,
+            "lastVerified": lastVerified
+        }
+        
+    def countImages(self, folder):
+        if not os.path.exists(folder):
+            return 0
+        
+        return len([
+            f for f in os.listdir(folder)
+            if f.lower().endswith(".jpg", ".jpeg", "png")
+        ])
+        
 
 #Local test
 if __name__ == "__main__":
