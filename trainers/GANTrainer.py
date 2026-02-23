@@ -57,7 +57,7 @@ def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, disp
             print(f"Epoch {epoch+1}: ")
 
         for data in tqdm(trainLoader, disable=(CONFIG.LOCAL_RANK != 0), dynamic_ncols=True):
-            insideModel = model.module
+            insideModel = model.module if CONFIG.USE_DDP else model
             insideModel.setupInput(data)
             insideModel.optimize()
             update_losses(insideModel, loss_meter_dict, count=data[0].size(0))
