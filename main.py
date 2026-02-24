@@ -68,12 +68,8 @@ if __name__ == "__main__":
         print("[MAIN] Trainer initialized successfully!")
         print("[MAIN] Start training with [torchrun --nproc_per_node=<nGPU>]|python main.py train|infer <args>")
     else:
-        if CONFIG.USE_DDP:
-            tdist.init_process_group(backend="nccl")
-
         trainData = COCO_LAB(size=CONFIG.IMAGE_SIZE, split="train")
         testData = COCO_LAB(size=CONFIG.IMAGE_SIZE, split="val")
-
 
         if CONFIG.MODE == CONFIG.RunMode.TRAIN:
             print("[MAIN] In train mode!")

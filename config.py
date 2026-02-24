@@ -5,7 +5,7 @@ import json
 import argparse
 from enum import Enum
 from utils.dataset import DatasetValidator
-import torch.distributed as dist
+import torch.distributed as tdist
 from datetime import datetime
 
 class Config:
@@ -29,6 +29,8 @@ class Config:
         try:
             self.device = self._getDevice()
             self.configFile = Path(configFile)
+            if self.use_ddp:
+                tdist.init_process_group(backend="nccl")
             self.config = self._load_config()
 
             self.validator = DatasetValidator(self.config["dataset"]["path"])
@@ -124,7 +126,7 @@ class Config:
                 self._save_config()
 
             if self.use_ddp:
-                dist.barrier() #Wait to sync processes
+                tdist.barrier() #Wait to sync processes
 
             raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
 
@@ -135,7 +137,7 @@ class Config:
                 self._save_config()
 
             if self.use_ddp:
-                dist.barrier()
+                tdist.barrier()
 
             raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
 
@@ -147,7 +149,7 @@ class Config:
             self._save_config()
 
         if self.use_ddp:
-            dist.barrier()
+            tdist.barrier()
 
         return True
     
@@ -166,7 +168,7 @@ class Config:
                         json.dump(updated_config, f, indent=4)
 
                 if self.use_ddp:
-                    dist.barrier()
+                    tdist.barrier()
 
             return updated_config
 
@@ -176,7 +178,7 @@ class Config:
                     json.dump(default_config, f, indent=4)
 
             if self.use_ddp:
-                    dist.barrier()
+                    tdist.barrier()
 
             return default_config
         
