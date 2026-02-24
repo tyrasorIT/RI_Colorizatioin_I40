@@ -83,7 +83,7 @@ class Config:
     
     def _set_out_filenames(self):
         formattedTime = datetime.now().strftime("%d%m%Y%H%M")
-        modelPath = f"{CONFIG.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
+        modelPath = f"{self.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
 
         if self.mode == self.RunMode.TRAIN:
             outDir = Path(self.config["output"]["modelDir"])
