@@ -3,14 +3,16 @@ from torch import nn
 from fastai.vision.learner import create_body
 from torchvision.models.resnet import resnet18
 from fastai.vision.models.unet import DynamicUnet
+from config import CONFIG
+import os
 
-def saveModel(savePath, model: torch.nn.Module, numEpochs):
+def saveModel(model: torch.nn.Module, numEpochs):
     torch.save({
         "model_state_dict": model.state_dict(),
         "epoch": numEpochs,
-    }, savePath)
+    }, CONFIG.MODEL_PATH)
 
-    print("Saved model to", savePath)
+    print("Saved model to", CONFIG.MODEL_PATH)
 
 def loadModelCheckpoint(device, modelPath: str, model: torch.nn.Module):
     

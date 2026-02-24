@@ -5,6 +5,8 @@ import json
 import argparse
 from enum import Enum
 from utils.dataset import DatasetValidator
+import torch.distributed as dist
+from datetime import datetime
 
 class Config:
     
@@ -23,15 +25,15 @@ class Config:
         self.use_ddp = False
         self.local_rank = 0 #Because of tqdm
         self.args = self._parse_args()
-        self.mode = self.RunMode(self.args.mode)
-        self.generatorType = self.GeneratorTypes(self.args.generatorType)
+        self._set_properties_from_arguments()
         try:
             self.device = self._getDevice()
             self.configFile = Path(configFile)
             self.config = self._load_config()
-            if self.local_rank == 0: #Ugly fix, consider moving from global to main config
-                self.validator = DatasetValidator(self.config["dataset"]["path"])
-                self._checkDataset()
+
+            self.validator = DatasetValidator(self.config["dataset"]["path"])
+            self._check_dataset()
+            self._set_out_filenames()
         except RuntimeError as e:
             print(f"RuntimeError: {e}")
             exit(1)
@@ -69,6 +71,31 @@ class Config:
                 parser.error("--pretrainGeneratorPath is required when generatorType is 'fastai' or 'pretrainedResnet'")
 
         return args
+    
+    def _set_properties_from_arguments(self):
+        self.mode = self.RunMode(self.args.mode)
+        self.generatorType = self.GeneratorTypes(self.args.generatorType)
+        self.imSize = self.args.imSize
+        self.batchSize = self.args.batchSize
+        self.numEpoch = self.args.numEpoch
+    
+    def _set_out_filenames(self):
+        formattedTime = datetime.now().strftime("%d%m%Y%H%M")
+        modelPath = f"{CONFIG.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
+
+        if self.mode == self.RunMode.TRAIN:
+            outDir = Path(self.config["output"]["modelDir"])
+            self.modelPath = os.path.join(outDir, modelPath)
+            self.pretrainGeneratorPath = Path(self.args.pretrainGeneratorPath)
+        elif self.mode == self.RunMode.PRETRAIN:
+            outDir = Path(self.config["output"]["pretrainedModelDir"])
+            self.modelPath = "pretrained_" + self.modelPath
+            self.modelPath = os.path.join(outDir, modelPath)
+        elif self.mode == self.RunMode.INFER:
+            self.modelPath = Path(self.args.modelPath)
+            self.pretrainGeneratorPath = Path(self.args.pretrainGeneratorPath)
+        
+        self.resultDir = Path(self.config["output"]["resultsDir"])
 
     def _getDevice(self):
         if 'LOCAL_RANK' in os.environ:
@@ -78,11 +105,10 @@ class Config:
             torch.cuda.set_device(self.local_rank)
             device = torch.device(f"cuda:{self.local_rank}")
             self.use_ddp = True
-            if self.local_rank == 0:
-                print("[CONFIG] Using multiGPU setup!")
+            print(f"[CONFIG] Using multiGPU setup! cuda:{self.local_rank}")
         elif torch.cuda.is_available():
             device = torch.device('cuda:0')
-            print("[CONFIG] Using single GPU setup!")
+            print(f"[CONFIG] Using single GPU setup! cuda:0")
         else:
             device = torch.device('cpu')
             print("[CONFIG] Warning: Using CPU!")
@@ -91,50 +117,108 @@ class Config:
 
         return device
     
-    def _checkDataset(self):
+    def _check_dataset(self):
+        if not self.validator.checkExists():
+            if self.local_rank == 0:
+                self.config = self._reset_dataset_state()
+                self._save_config()
+
+            if self.use_ddp:
+                dist.barrier() #Wait to sync processes
+
+            raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
+
+        datasetInfo = self.validator.getDatasetInfo()
+        if not datasetInfo:
+            if self.local_rank == 0:
+                self.config = self._reset_dataset_state()
+                self._save_config()
+
+            if self.use_ddp:
+                dist.barrier()
+
+            raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
+
+        self.config["dataset"]["initialized"] = True
+        self.config["dataset"]["trainSize"] = datasetInfo["trainSize"]
+        self.config["dataset"]["valSize"] = datasetInfo["valSize"]
+        self.config["dataset"]["lastVerified"] = datasetInfo["lastVerified"]
         if self.local_rank == 0:
-            if not self.validator.checkExists():
-                self.config = self._get_clear_config()
-                self._save_config()
-                raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
-
-            datasetInfo = self.validator.getDatasetInfo()
-            if not datasetInfo:
-                self.config = self._get_clear_config()
-                self._save_config()
-                raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
-
-            self.config["dataset"]["initialized"] = True
-            self.config["dataset"]["trainSize"] = datasetInfo["trainSize"]
-            self.config["dataset"]["valSize"] = datasetInfo["valSize"]
-            self.config["dataset"]["lastVerified"] = datasetInfo["lastVerified"]
-
             self._save_config()
-            return True
+
+        if self.use_ddp:
+            dist.barrier()
+
+        return True
     
     def _load_config(self):
-        if self.local_rank == 0:
-            if self.configFile.exists():
-                with open(self.configFile, 'r') as f:
-                    return json.load(f)
-            else:
-                return self._get_clear_config()
+        default_config = self._get_default_config()
+
+        if self.configFile.exists():
+            with open(self.configFile, 'r') as f:
+                loaded_config = json.load(f)
+
+            updated_config = self._merge_dicts(default_config, loaded_config)
+
+            if updated_config != loaded_config:
+                if self.local_rank == 0:
+                    with open(self.configFile, 'w') as f:
+                        json.dump(updated_config, f, indent=4)
+
+                if self.use_ddp:
+                    dist.barrier()
+
+            return updated_config
+
+        else:
+            if self.local_rank == 0:
+                with open(self.configFile, 'w') as f:
+                    json.dump(default_config, f, indent=4)
+
+            if self.use_ddp:
+                    dist.barrier()
+
+            return default_config
         
-    def _get_clear_config(self):
+    def _merge_dicts(self, default, loaded):
+        for key, value in default.items():
+            if key not in loaded:
+                loaded[key] = value
+            elif isinstance(value, dict):
+                loaded[key] = self._merge_dicts(value, loaded.get(key, {}))
+        return loaded
+            
+    def _get_default_config(self):
         return {
+                    "output": {
+                        "modelDir": "./modelCheckpoints",
+                        "pretrainedModelDir": "./pretrainedModelCheckPoints",
+                        "resultsDir": "./results"
+                    },
                     "dataset": {
                         "initialized": False,
                         "trainSize": 0,
                         "valSize": 0,
                         "lastVerified": None,
                         "path": "./data/coco"
+                    },
+                    "results": {
+                        "imgToDisplay": [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39]
                     }
                 }
+        
+    def _reset_dataset_state(self):
+        self.config["dataset"].update({
+                        "initialized": False,
+                        "trainSize": 0,
+                        "valSize": 0,
+                        "lastVerified": None,
+                        "path": "./data/coco"
+                    })
 
     def _save_config(self):
-        if self.local_rank == 0:
-            with open(self.configFile, 'w') as f:
-                json.dump(self.config, f, indent=4)
+        with open(self.configFile, 'w') as f:
+            json.dump(self.config, f, indent=4)
     
     @property
     def DEVICE(self):
@@ -153,7 +237,35 @@ class Config:
         return self.mode
     
     @property
-    def GENERATORTYPE(self):
+    def GENERATOR_TYPE(self):
         return self.generatorType
+    
+    @property
+    def MODEL_PATH(self):
+        return self.modelPath
+    
+    @property
+    def RESULTS_DIR(self):
+        return self.resultDir
+    
+    @property
+    def IMAGE_SIZE(self):
+        return self.imSize
+    
+    @property
+    def BATCH_SIZE(self):
+        return self.batchSize
+    
+    @property
+    def NUM_EPOCH(self):
+        return self.numEpoch
+    
+    @property
+    def PRETRAINED_GENERATOR_PATH(self):
+        return self.pretrainGeneratorPath
+    
+    @property
+    def IMG_TO_DISPLAY(self):
+        return self.config["results"]["imgToDisplay"]
 
 CONFIG = Config()

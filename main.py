@@ -68,40 +68,28 @@ if __name__ == "__main__":
         print("[MAIN] Trainer initialized successfully!")
         print("[MAIN] Start training with [torchrun --nproc_per_node=<nGPU>]|python main.py train|infer <args>")
     else:
-        print("[MAIN] In train mode!")
-
         if CONFIG.USE_DDP:
             tdist.init_process_group(backend="nccl")
 
-        imSize=CONFIG.args.imSize
-        trainData = COCO_LAB(size=imSize, split="train")
-        testData = COCO_LAB(size=imSize, split="val")
-        batchSize = CONFIG.args.batchSize
-        numEpochs = CONFIG.args.numEpoch
-        pretrainedGeneratorPath= CONFIG.args.pretrainGeneratorPath
-        generatorType = CONFIG.GENERATORTYPE
-        formattedTime = datetime.now().strftime("%d%m%Y%H%M")
-        modelPath = f"colorizer_{CONFIG.GENERATORTYPE.value}_epoch{numEpochs}_{formattedTime}.pth"
-        imgToDisplay = [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-        imgToDisplayTrain = [21, 23, 25, 27, 29, 31, 33, 35, 37, 39]
-        fullRangeToDisplay = imgToDisplay + imgToDisplayTrain
+        trainData = COCO_LAB(size=CONFIG.IMAGE_SIZE, split="train")
+        testData = COCO_LAB(size=CONFIG.IMAGE_SIZE, split="val")
 
-        # mode = 2 #1 is train, 0 is show #2 is new train #3 is new show
 
         if CONFIG.MODE == CONFIG.RunMode.TRAIN:
-            model = GANTrainer(CONFIG.DEVICE, trainData, testData, batchSize = batchSize, numEpochs = numEpochs, displayEvery=100, pretrainedGeneratorPath=pretrainedGeneratorPath, generatorType=generatorType)
+            print("[MAIN] In train mode!")
+            model = GANTrainer(CONFIG.DEVICE, trainData, testData, batchSize = CONFIG.BATCH_SIZE, numEpochs = CONFIG.NUM_EPOCH, displayEvery=100, pretrainedGeneratorPath=CONFIG.PRETRAINED_GENERATOR_PATH, generatorType=CONFIG.GENERATOR_TYPE)
             if CONFIG.LOCAL_RANK == 0:
-                saveModel(modelPath, model.module, numEpochs) 
-                show_results3(CONFIG.DEVICE, model.module, testData, idx = 1, size=imSize)
+                saveModel(model.module, CONFIG.NUM_EPOCH) 
+                show_results3(CONFIG.DEVICE, model.module, testData, idx = 1, size=CONFIG.IMAGE_SIZE)
         elif CONFIG.MODE == CONFIG.RunMode.PRETRAIN:
-            model = pretrainGenerator(CONFIG.DEVICE, generatorType, trainData, batchSize=batchSize, numEpochs=numEpochs)
+            print("[MAIN] In pretrain mode!")
+            model = pretrainGenerator(CONFIG.DEVICE, CONFIG.GENERATOR_TYPE, trainData, batchSize=CONFIG.BATCH_SIZE, numEpochs=CONFIG.NUM_EPOCH)
             if CONFIG.LOCAL_RANK == 0:
-                #Check input model and generate name base on it
-                # saveModel("resnet_unet_pretrained.pt", model.module, numEpochs)
-                saveModel("resnet_fastai_unet_pretrained.pt", model.module, numEpochs)
+                saveModel(model.module, CONFIG.NUM_EPOCH)
         elif CONFIG.MODE == CONFIG.RunMode.INFER:
+            print("[MAIN] In inferance mode!")
             if CONFIG.LOCAL_RANK == 0:
-                displaySelectedResults3(CONFIG.DEVICE, modelPath, testData, fullRangeToDisplay, size=imSize, pretrainedGeneratorPath=pretrainedGeneratorPath, generatorType=generatorType)
+                displaySelectedResults3(CONFIG.DEVICE, CONFIG.MODEL_PATH, testData, CONFIG.IMG_TO_DISPLAY, size=CONFIG.IMAGE_SIZE, pretrainedGeneratorPath=CONFIG.PRETRAINED_GENERATOR_PATH, generatorType=CONFIG.GENERATOR_TYPE)
 
             # elif mode == 4:
             #     if CONFIG.LOCAL_RANK == 0:
