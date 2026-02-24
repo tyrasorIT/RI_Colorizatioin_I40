@@ -1,6 +1,5 @@
 # Ignore all __pycache__ folders
 **/__pycache__/
-**/data/
 
 #Ignore compiled python files 
 *.py[cod]
@@ -8,3 +7,7 @@
 
 #Ignore local config files
 .config.json
+
+#Ignore results and datasets
+**/data/
+**/results/

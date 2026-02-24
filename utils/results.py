@@ -9,6 +9,8 @@ import time
 import PIL
 from torchvision import transforms
 from external.colorization.colorizers import *
+from config import CONFIG
+from datetime import datetime
 
 def lab_to_rgb(L, ab):
     """
@@ -24,7 +26,7 @@ def lab_to_rgb(L, ab):
         rgb_imgs.append(img_rgb)
     return np.stack(rgb_imgs, axis=0)
 
-def show_results3(device, model: torch.nn.Module, data, idx, size, output_dir="./results"):
+def show_results3(device, model: torch.nn.Module, data, idx, size, output_dir=CONFIG.RESULTS_DIR):
     model.generatorNet.eval()
     l, ab = data[idx]
 
@@ -83,7 +85,7 @@ def as_load_img_array(img):
 
 
 # show_results4(device, colorizer_eccv16, colorizer_siggraph17, testData, idx=i, size=size)
-def show_results4(device, eccv16: ECCVGenerator, siggraph17: SIGGRAPHGenerator, data, idx, size, output_dir="./results"):
+def show_results4(device, eccv16: ECCVGenerator, siggraph17: SIGGRAPHGenerator, data, idx, size, output_dir=CONFIG.RESULTS_DIR):
     os.makedirs(output_dir, exist_ok=True)
     eccv16.eval()
     siggraph17.eval()

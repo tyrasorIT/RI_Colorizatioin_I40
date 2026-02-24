@@ -78,26 +78,32 @@ class Config:
         self.mode = self.RunMode(self.args.mode)
         self.generatorType = self.GeneratorTypes(self.args.generatorType)
         self.imSize = self.args.imSize
-        self.batchSize = self.args.batchSize
-        self.numEpoch = self.args.numEpoch
+        if hasattr(self.args, "batchSize"):
+            self.batchSize = self.args.batchSize
+        if hasattr(self.args, "numEpoch"):
+            self.numEpoch = self.args.numEpoch
     
     def _set_out_filenames(self):
         formattedTime = datetime.now().strftime("%d%m%Y%H%M")
-        modelPath = f"{self.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
+        resultsDir = Path(self.config["output"]["resultsDir"])
 
         if self.mode == self.RunMode.TRAIN:
             outDir = Path(self.config["output"]["modelDir"])
+            modelPath = f"{self.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
             self.modelPath = os.path.join(outDir, modelPath)
             self.pretrainGeneratorPath = Path(self.args.pretrainGeneratorPath)
         elif self.mode == self.RunMode.PRETRAIN:
             outDir = Path(self.config["output"]["pretrainedModelDir"])
-            self.modelPath = "pretrained_" + self.modelPath
+            modelPath = f"{self.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
+            self.modelPath = "pretrained_" + modelPath
             self.modelPath = os.path.join(outDir, modelPath)
         elif self.mode == self.RunMode.INFER:
             self.modelPath = Path(self.args.modelPath)
             self.pretrainGeneratorPath = Path(self.args.pretrainGeneratorPath)
-        
-        self.resultDir = Path(self.config["output"]["resultsDir"])
+            infareDir = f"infare_{formattedTime}"
+            resultsDir = os.path.join(resultsDir, infareDir)
+
+        self.resultsDir = resultsDir
 
     def _getDevice(self):
         if 'LOCAL_RANK' in os.environ:
@@ -248,7 +254,7 @@ class Config:
     
     @property
     def RESULTS_DIR(self):
-        return self.resultDir
+        return self.resultsDir
     
     @property
     def IMAGE_SIZE(self):
