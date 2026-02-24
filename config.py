@@ -14,11 +14,17 @@ class Config:
         TRAIN = "train"
         INFER = "infer"
 
+    class GeneratorTypes(Enum):
+        RESNET = "resnet"
+        FASTAI = "fastai"
+        PRETRAINEDRESNET = "pretrainedResnet"
+
     def __init__(self, configFile: str = ".config.json"):
         self.use_ddp = False
         self.local_rank = 0 #Because of tqdm
         self.args = self._parse_args()
         self.mode = self.RunMode(self.args.mode)
+        self.generatorType = self.GeneratorTypes(self.args.generatorType)
         try:
             self.device = self._getDevice()
             self.configFile = Path(configFile)
@@ -145,5 +151,9 @@ class Config:
     @property
     def MODE(self):
         return self.mode
+    
+    @property
+    def GENERATORTYPE(self):
+        return self.generatorType
 
 CONFIG = Config()

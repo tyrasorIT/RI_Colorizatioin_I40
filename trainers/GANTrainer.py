@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 from tqdm import tqdm
 from utils.results import visualize
+from config import CONFIG
 
 def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, displayEvery=200, pretrainedGeneratorPath=None, generatorType=None):
     
@@ -21,14 +22,16 @@ def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, disp
     testLoader = DataLoader(testData, batch_size=batchSize, sampler=testSampler, num_workers=8, pin_memory=True, persistent_workers=True)
 
     if pretrainedGeneratorPath is not None:
-        if generatorType == "customResnet":
+        if generatorType == CONFIG.GeneratorTypes.PRETRAINEDRESNET:
             generatorNet = ResNetUNetColorization(out_ch=2, pretrained=True)
-        elif generatorType == "fastai":
+        elif generatorType == CONFIG.GeneratorTypes.FASTAI:
             generatorNet = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
+        else:
+            RuntimeError("No generator selected! Exiting!")
 
         loadModelCheckpoint(device, pretrainedGeneratorPath, generatorNet)
     else:
-        generatorNet = "resnet"
+        generatorNet = CONFIG.GeneratorTypes.RESNET
     model = GANColorization(device, generatorNet=generatorNet)
 
     if CONFIG.USE_DDP:

@@ -22,9 +22,9 @@ def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numE
     )
     
     # Use your existing ResNet U-Net
-    if generatorType == "resnet":
+    if generatorType == CONFIG.GeneratorTypes.RESNET:
         generator = ResNetUNetColorization(out_ch=2, pretrained=True).to(device)
-    elif generatorType == "fastai":
+    elif generatorType == CONFIG.GeneratorTypes.FASTAI:
         generator = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
     else:
         RuntimeError("No generator selected! Exiting!")

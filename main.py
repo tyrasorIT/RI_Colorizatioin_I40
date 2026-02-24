@@ -17,14 +17,16 @@ def displaySelectedResults3(device, modelPath: str, testData, idxList: List[int]
     # Create model with pretrained=False since we're loading trained weights
 
     if pretrainedGeneratorPath is not None:
-        if generatorType == "pretrainedResnet":
+        if generatorType == CONFIG.GeneratorTypes.PRETRAINEDRESNET:
             generatorNet = ResNetUNetColorization(out_ch=2, pretrained=True)
-        elif generatorType == "fastai":
+        elif generatorType == CONFIG.GeneratorTypes.FASTAI:
             generatorNet = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
+        else:
+            RuntimeError("No generator selected! Exiting!")
 
         loadModelCheckpoint(device, pretrainedGeneratorPath, generatorNet)
     else:
-        generatorNet = "resnet"
+        generatorNet = CONFIG.GeneratorTypes.RESNET
 
     model_wrapper = GANColorization(device, generatorNet=generatorNet)
     
@@ -42,7 +44,7 @@ def displaySelectedResults3(device, modelPath: str, testData, idxList: List[int]
         show_results3(device, model_wrapper, testData, idx=i, size=size)
 
 def colorizeFromImage(device, modelPath: str, imagePath: str, size):
-    model = GANColorization(device, generatorNet="resnet")
+    model = GANColorization(device, generatorNet=CONFIG.GeneratorTypes.RESNET)
 
     loadModelCheckpoint(device, modelPath, model)
 
@@ -77,9 +79,9 @@ if __name__ == "__main__":
         batchSize = CONFIG.args.batchSize
         numEpochs = CONFIG.args.numEpoch
         pretrainedGeneratorPath= CONFIG.args.pretrainGeneratorPath
-        generatorType = CONFIG.args.generatorType
+        generatorType = CONFIG.GENERATORTYPE
         formattedTime = datetime.now().strftime("%d%m%Y%H%M")
-        modelPath = f"colorizer_{generatorType}_epoch{numEpochs}_{formattedTime}.pth"
+        modelPath = f"colorizer_{CONFIG.GENERATORTYPE.value}_epoch{numEpochs}_{formattedTime}.pth"
         imgToDisplay = [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
         imgToDisplayTrain = [21, 23, 25, 27, 29, 31, 33, 35, 37, 39]
         fullRangeToDisplay = imgToDisplay + imgToDisplayTrain
