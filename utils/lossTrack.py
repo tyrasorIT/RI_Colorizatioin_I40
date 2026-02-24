@@ -1,3 +1,7 @@
+import torch
+import csv
+import os
+
 class AverageMeter:
     def __init__(self):
         self.reset()
@@ -18,13 +22,18 @@ def create_loss_meters():
     lossGeneratorGAN = AverageMeter()
     lossGeneratorL1 = AverageMeter()
     lossGenerator = AverageMeter()
+    psnr = AverageMeter()
+    ssim = AverageMeter()
 
     return {'lossDiscriminatorFake': lossDiscriminatorFake,
             'lossDiscriminatorReal': lossDiscriminatorReal,
             'lossDiscriminator': lossDiscriminator,
             'lossGeneratorGAN': lossGeneratorGAN,
             'lossGeneratorL1': lossGeneratorL1,
-            'lossGenerator': lossGenerator}
+            'lossGenerator': lossGenerator,
+            'psnr': psnr,
+            'ssim': ssim
+            }
 
 
 def update_losses(model, loss_meter_dict, count):
@@ -35,3 +44,34 @@ def update_losses(model, loss_meter_dict, count):
 def log_results(loss_meter_dict):
     for loss_name, loss_meter in loss_meter_dict.items():
         print(f"{loss_name}: {loss_meter.avg:.5f}")
+
+def reduce_meter_dict(meterDict, device):
+    for meter in meterDict.values():
+        sumTensor = torch.tensor(meter.sum, device=device)
+        countTensor = torch.tensor(meter.count, device=device)
+
+        torch.distributed.all_reduce(sumTensor)
+        torch.distributed.all_reduce(countTensor)
+
+        meter.sum = sumTensor.item()
+        meter.count = countTensor.item()
+        meter.avg = meter.sum / meter.count if meter.count > 0 else 0.0
+
+class CSVLogger:
+    def __init__(self, filePath, fieldNames):
+        self.filePath = filePath
+        self.fieldNames = fieldNames
+
+        fileExists = os.path.isfile(filePath)
+        self.file = open(filePath, "a", newline="")
+        self.writer = csv.DictWriter(self.file, fieldnames=fieldNames)
+
+        if not fileExists:
+            self.writer.writeheader()
+
+    def log(self, rowDict):
+        self.writer.writerow(rowDict)
+        self.file.flush()
+
+    def close(self):
+        self.file.close()

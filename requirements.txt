@@ -11,3 +11,4 @@ pycocotools
 spacy<3.8
 fastai
 IPython
+torchmetrics
