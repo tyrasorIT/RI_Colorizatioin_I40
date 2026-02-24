@@ -19,11 +19,12 @@ class Config:
     class GeneratorTypes(Enum):
         RESNET = "resnet"
         FASTAI = "fastai"
-        PRETRAINEDRESNET = "pretrainedResnet"
+        # PRETRAINEDRESNET = "pretrainedResnet"
 
     def __init__(self, configFile: str = ".config.json"):
         self.use_ddp = False
         self.local_rank = 0 #Because of tqdm
+        self.pretrained = False
         self.args = self._parse_args()
         self._set_properties_from_arguments()
         try:
@@ -51,26 +52,21 @@ class Config:
         pretrainParser.add_argument("--imSize", type=int, required=True, choices=[64, 96, 128, 256], help="Image size")
         pretrainParser.add_argument("--batchSize", type=int, required=True, choices=[64, 96, 128, 256, 384], help="Batch size")
         pretrainParser.add_argument("--numEpoch", type=int, required=True, help="Number of epochs to pretrain the model for")
-        pretrainParser.add_argument("--generatorType", type=str, required=True, choices=["fastai", "pretrainedResnet"], help="Generator type to pretrain")
+        pretrainParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai"], help="Generator type to pretrain")
 
         trainParser = subparsers.add_parser("train")
         trainParser.add_argument("--imSize", type=int, required=True, choices=[64, 96, 128, 256], help="Image size")
         trainParser.add_argument("--batchSize", type=int, required=True, choices=[64, 96, 128, 256, 384], help="Batch size")
         trainParser.add_argument("--numEpoch", type=int, required=True, help="Number of epochs to train the model for")
-        trainParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai", "pretrainedResnet"], help="Generator type to use for GAN model")
+        trainParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai"], help="Generator type to use for GAN model")
         trainParser.add_argument("--pretrainGeneratorPath", type=str, required=False, help="Path to the pretrained generator")
         
         inferParser = subparsers.add_parser("infer")
         inferParser.add_argument("--imSize", type=int, required=True, choices=[64, 96, 128, 256], help="Image size")
         inferParser.add_argument("--modelPath", type=str, required=True, help="Path of the model to infer")
-        inferParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai", "pretrainedResnet"], help="Generator type to use for GAN model")
-        inferParser.add_argument("--pretrainGeneratorPath", type=str, required=False, help="Path to the pretrained generator")
+        inferParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai"], help="Generator type to use for inferance")
 
         args = parser.parse_args()
-
-        if args.mode in ["train", "infer"]:
-            if args.generatorType in ["fastai", "pretrainedResnet"] and not args.pretrainGeneratorPath:
-                parser.error("--pretrainGeneratorPath is required when generatorType is 'fastai' or 'pretrainedResnet'")
 
         return args
     
@@ -90,17 +86,19 @@ class Config:
         if self.mode == self.RunMode.TRAIN:
             outDir = Path(self.config["output"]["modelDir"])
             modelPath = f"{self.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
+            if hasattr(self.args, "pretrainGeneratorPath"):
+                self.pretrained = True
+                self.pretrainGeneratorPath = Path(self.args.pretrainGeneratorPath)
+                modelPath = "pretrained_" + modelPath
             self.modelPath = os.path.join(outDir, modelPath)
-            self.pretrainGeneratorPath = Path(self.args.pretrainGeneratorPath)
         elif self.mode == self.RunMode.PRETRAIN:
             outDir = Path(self.config["output"]["pretrainedModelDir"])
             modelPath = f"{self.generatorType.value}_epoch{self.args.numEpoch}_{formattedTime}.pth"
-            self.modelPath = "pretrained_" + modelPath
+            self.modelPath = "generator_pretrained_" + modelPath
             self.modelPath = os.path.join(outDir, modelPath)
         elif self.mode == self.RunMode.INFER:
             self.modelPath = Path(self.args.modelPath)
-            self.pretrainGeneratorPath = Path(self.args.pretrainGeneratorPath)
-            infareDir = f"infare_{formattedTime}"
+            infareDir = f"infer_{formattedTime}"
             resultsDir = os.path.join(resultsDir, infareDir)
 
         self.resultsDir = resultsDir
@@ -275,5 +273,9 @@ class Config:
     @property
     def IMG_TO_DISPLAY(self):
         return self.config["results"]["imgToDisplay"]
+    
+    @property
+    def PRETRAINED(self):
+        return self.pretrained
 
 CONFIG = Config()

@@ -1,28 +1,36 @@
 from torch import nn
 import torch
 from utils.model import initModel
+from utils.model import buildResNetFastAi, loadModelCheckpoint
 from .ResNetUNetColorization import ResNetUNetColorization
-from .UNetColorization import UNetColorization
 from .discriminators import PatchDiscriminator
 from losses.customGANLoss import customGANLoss
 from torch import optim
+from config import Config # Just for generator types
 
 class GANColorization(nn.Module):
-    def __init__(self, device, generatorNet=None, lrGenerator=2e-4, lrDiscriminator=2e-4, beta1=0.5, beta2=0.999, lambdaL1=100.):
+    def __init__(self, device, generatorType=None, pretrained=False, pretrainedPath=None, lrGenerator=2e-4, lrDiscriminator=2e-4, beta1=0.5, beta2=0.999, lambdaL1=100.):
         super().__init__()
 
         self.device = device
         self.lambdaL1 = lambdaL1
 
-        if generatorNet is None:
-            print("GAN using Unet.")
-            self.generatorNet = initModel(UNetColorization(in_ch= 1, out_ch= 2, base_ch=64), self.device)
-        elif generatorNet == "resnet":
-            print("GAN using ResNet.")
+        if generatorType is None or generatorType == Config.GeneratorTypes.RESNET:
+            print("[GAN Colorization] Using ResNet generator.")
             self.generatorNet = ResNetUNetColorization(out_ch=2, pretrained=True).to(self.device)
+        elif generatorType == Config.GeneratorTypes.FASTAI:
+            print("[GAN Colorization] Using Fastai generator.")
+            self.generatorNet = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
         else:
-            print("GAN using sent generator.")
-            self.generatorNet = generatorNet.to(self.device)
+            raise RuntimeError(f"[GAN Colorization] No proper generator selected!")
+        
+        if pretrained:
+            print("[GAN Colorization] Using pretrained generators.")
+            metadata = loadModelCheckpoint(self.device, pretrainedPath, self.generatorNet)
+            if metadata:
+                if Config.GeneratorTypes(metadata["generator_type"]) != generatorType:
+                    raise RuntimeError(f"[GAN Colorization] Pretrained generator and generator type mismatch!")
+
         self.discriminatorNet = initModel(PatchDiscriminator(inCh=3, numFilters=64, nDown=3), self.device)
         self.GANCriterion = customGANLoss(ganMode= "vanilla").to(self.device)
         self.L1Criterion = nn.L1Loss()

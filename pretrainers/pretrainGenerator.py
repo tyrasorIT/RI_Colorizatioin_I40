@@ -10,12 +10,12 @@ from config import CONFIG
 
 def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numEpochs=20):
     # Create DataLoader
-    trainSampler = DistributedSampler(trainData)
+    trainSampler = DistributedSampler(trainData) if CONFIG.USE_DDP else None
     trainLoader = DataLoader(
         trainData,
         batch_size=batchSize,
         sampler=trainSampler,
-        shuffle=False,
+        shuffle=False if CONFIG.USE_DDP else True,
         num_workers=8,
         pin_memory=True,
         persistent_workers=True,
@@ -27,11 +27,12 @@ def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numE
     elif generatorType == CONFIG.GeneratorTypes.FASTAI:
         generator = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
     else:
-        RuntimeError("No generator selected! Exiting!")
+        raise RuntimeError("No generator selected! Exiting!")
 
-    generator = torch.nn.parallel.DistributedDataParallel(
-        generator, device_ids=[CONFIG.LOCAL_RANK]
-    )
+    if CONFIG.USE_DDP:
+        generator = torch.nn.parallel.DistributedDataParallel(
+            generator, device_ids=[CONFIG.LOCAL_RANK]
+        )
 
     optimizer = optim.Adam(generator.parameters(), lr=1e-4)
     criterion = torch.nn.L1Loss()
@@ -41,7 +42,8 @@ def pretrainGenerator(device, generatorType: str, trainData, batchSize=128, numE
     epochTimes = []
     
     for epoch in range(numEpochs):
-        trainSampler.set_epoch(epoch)
+        if CONFIG.USE_DDP:
+            trainSampler.set_epoch(epoch)
 
         epoch_loss = 0
         num_batches = 0

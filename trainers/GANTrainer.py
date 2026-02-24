@@ -13,7 +13,7 @@ from tqdm import tqdm
 from utils.results import visualize
 from config import CONFIG
 
-def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, displayEvery=200, pretrainedGeneratorPath=None, generatorType=None):
+def GANTrainer(device, trainData, testData, generatorType, batchSize = 64, numEpochs = 50, displayEvery=200):
     
     trainSampler = DistributedSampler(trainData) if CONFIG.USE_DDP else None
     testSampler = DistributedSampler(testData, shuffle=False) if CONFIG.USE_DDP else None
@@ -21,18 +21,7 @@ def GANTrainer(device, trainData, testData, batchSize = 64, numEpochs = 50, disp
     trainLoader = DataLoader(trainData, batch_size=batchSize, sampler=trainSampler, num_workers=8, pin_memory=True, persistent_workers=True, shuffle=False if CONFIG.USE_DDP else True)
     testLoader = DataLoader(testData, batch_size=batchSize, sampler=testSampler, num_workers=8, pin_memory=True, persistent_workers=True)
 
-    if pretrainedGeneratorPath is not None:
-        if generatorType == CONFIG.GeneratorTypes.PRETRAINEDRESNET:
-            generatorNet = ResNetUNetColorization(out_ch=2, pretrained=True)
-        elif generatorType == CONFIG.GeneratorTypes.FASTAI:
-            generatorNet = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
-        else:
-            RuntimeError("No generator selected! Exiting!")
-
-        loadModelCheckpoint(device, pretrainedGeneratorPath, generatorNet)
-    else:
-        generatorNet = CONFIG.GeneratorTypes.RESNET
-    model = GANColorization(device, generatorNet=generatorNet)
+    model = GANColorization(device, generatorType=generatorType, pretrained=CONFIG.PRETRAINED, pretrainedPath=CONFIG.PRETRAINED_GENERATOR_PATH)
 
     if CONFIG.USE_DDP:
         model = torch.nn.parallel.DistributedDataParallel(

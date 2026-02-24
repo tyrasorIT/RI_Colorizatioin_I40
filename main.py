@@ -13,32 +13,18 @@ from external.colorization.colorizers import eccv16, siggraph17
 from config import CONFIG
 from trainers.GANTrainer import GANTrainer
 
-def displaySelectedResults3(device, modelPath: str, testData, idxList: List[int], size, pretrainedGeneratorPath=None, generatorType=None):
-    # Create model with pretrained=False since we're loading trained weights
+def displaySelectedResults3(device, modelPath: str, testData, idxList: List[int], size, generatorType=None):
 
-    if pretrainedGeneratorPath is not None:
-        if generatorType == CONFIG.GeneratorTypes.PRETRAINEDRESNET:
-            generatorNet = ResNetUNetColorization(out_ch=2, pretrained=True)
-        elif generatorType == CONFIG.GeneratorTypes.FASTAI:
-            generatorNet = buildResNetFastAi(device, n_input=1, n_output=2, size=128)
-        else:
-            RuntimeError("No generator selected! Exiting!")
+    metadata = loadModelCheckpoint(device, modelPath, None, metadataOnly=True)
+    #If metadata exists use from metadata otherwise use from input
+    if metadata:
+        generatorType=CONFIG.GeneratorTypes(metadata["generator_type"])
 
-        loadModelCheckpoint(device, pretrainedGeneratorPath, generatorNet)
-    else:
-        generatorNet = CONFIG.GeneratorTypes.RESNET
-
-    model_wrapper = GANColorization(device, generatorNet=generatorNet)
+    model_wrapper = GANColorization(device, generatorType=generatorType)
     
     loadModelCheckpoint(device, modelPath, model_wrapper)
     model_wrapper.eval()
     model_wrapper.generatorNet.eval()
-
-    # Explicitly set all submodules to eval
-    for module in model_wrapper.generatorNet.modules():
-        if isinstance(module, nn.BatchNorm2d):
-            module.eval()
-            module.track_running_stats = True
     
     for i in idxList:
         show_results3(device, model_wrapper, testData, idx=i, size=size)
@@ -66,7 +52,7 @@ if __name__ == "__main__":
         trainData = COCO_LAB(split="train")
         testData = COCO_LAB(split="val")
         print("[MAIN] Trainer initialized successfully!")
-        print("[MAIN] Start training with [torchrun --nproc_per_node=<nGPU>]|python main.py train|infer <args>")
+        print("[MAIN] Start training with [torchrun --nproc_per_node=<nGPU>]|python main.py train <args>")
     else:
         trainData = COCO_LAB(size=CONFIG.IMAGE_SIZE, split="train")
         testData = COCO_LAB(size=CONFIG.IMAGE_SIZE, split="val")
@@ -85,7 +71,7 @@ if __name__ == "__main__":
         elif CONFIG.MODE == CONFIG.RunMode.INFER:
             print("[MAIN] In inferance mode!")
             if CONFIG.LOCAL_RANK == 0:
-                displaySelectedResults3(CONFIG.DEVICE, CONFIG.MODEL_PATH, testData, CONFIG.IMG_TO_DISPLAY, size=CONFIG.IMAGE_SIZE, pretrainedGeneratorPath=CONFIG.PRETRAINED_GENERATOR_PATH, generatorType=CONFIG.GENERATOR_TYPE)
+                displaySelectedResults3(CONFIG.DEVICE, CONFIG.MODEL_PATH, testData, CONFIG.IMG_TO_DISPLAY, size=CONFIG.IMAGE_SIZE)
 
             # elif mode == 4:
             #     if CONFIG.LOCAL_RANK == 0:

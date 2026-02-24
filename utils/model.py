@@ -6,18 +6,36 @@ from fastai.vision.models.unet import DynamicUnet
 from config import CONFIG
 import os
 
-def saveModel(model: torch.nn.Module, numEpochs):
+def saveModel(model: torch.nn.Module):
     torch.save({
         "model_state_dict": model.state_dict(),
-        "epoch": numEpochs,
+        "epoch": CONFIG.NUM_EPOCH,
+        "generator_type": CONFIG.GENERATOR_TYPE.value,
+        "image_size": CONFIG.IMAGE_SIZE,
+        "batch_size": CONFIG.BATCH_SIZE
     }, CONFIG.MODEL_PATH)
 
     print("Saved model to", CONFIG.MODEL_PATH)
 
-def loadModelCheckpoint(device, modelPath: str, model: torch.nn.Module):
+def loadModelCheckpoint(device, modelPath: str, model: torch.nn.Module | None, metadataOnly=False):
     
     checkpoint = torch.load(modelPath, map_location=device)
-    model.load_state_dict(checkpoint["model_state_dict"])
+    if not metadataOnly:
+        model.load_state_dict(checkpoint["model_state_dict"])
+
+    #This is model metadata
+    try:
+        metadata = {
+            "epoch": checkpoint["epoch"],
+            "generator_type": checkpoint["generator_type"],
+            "image_size": checkpoint["image_size"],
+            "batch_size": checkpoint["batch_size"]
+        }
+    except Exception as e:
+        print("Metadata missing!")
+        metadata = {}
+    
+    return metadata
 
 def initWeights(net, init='norm', gain=0.02):
     def init_func(m):
