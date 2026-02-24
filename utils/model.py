@@ -4,7 +4,7 @@ from fastai.vision.learner import create_body
 from torchvision.models.resnet import resnet18
 from fastai.vision.models.unet import DynamicUnet
 from config import CONFIG
-import os
+from typing import Optional
 
 def saveModel(model: torch.nn.Module):
     torch.save({
@@ -17,7 +17,7 @@ def saveModel(model: torch.nn.Module):
 
     print("Saved model to", CONFIG.MODEL_PATH)
 
-def loadModelCheckpoint(device, modelPath: str, model: torch.nn.Module | None, metadataOnly=False):
+def loadModelCheckpoint(device, modelPath: str, model: Optional[torch.nn.Module], metadataOnly=False):
     
     checkpoint = torch.load(modelPath, map_location=device)
     if not metadataOnly:
