@@ -31,10 +31,17 @@ class Config:
             self.configFile = Path(configFile)
             if self.use_ddp:
                 tdist.init_process_group(backend="nccl")
-            self.config = self._load_config()
 
-            self.validator = DatasetValidator(self.config["dataset"]["path"])
-            self._check_dataset()
+            if self.local_rank == 0:
+                self.config = self._precheck_config()
+
+            if self.local_rank != 0:
+                self.config = self._load_config()
+
+            if self.mode != Config.RunMode.INIT:
+                self.validator = DatasetValidator(self.config["dataset"]["path"])
+                self._check_dataset()
+                
             self._set_out_filenames()
         except RuntimeError as e:
             print(f"RuntimeError: {e}")
@@ -71,8 +78,10 @@ class Config:
     
     def _set_properties_from_arguments(self):
         self.mode = self.RunMode(self.args.mode)
-        self.generatorType = self.GeneratorTypes(self.args.generatorType)
-        self.imSize = self.args.imSize
+        if hasattr(self.args, "generatorType"):
+            self.generatorType = self.GeneratorTypes(self.args.generatorType)
+        if hasattr(self.args, "imSize"):
+            self.imSize = self.args.imSize
         if hasattr(self.args, "batchSize"):
             self.batchSize = self.args.batchSize
         if hasattr(self.args, "numEpoch"):
@@ -131,24 +140,10 @@ class Config:
     
     def _check_dataset(self):
         if not self.validator.checkExists():
-            if self.local_rank == 0:
-                self.config = self._reset_dataset_state()
-                self._save_config()
-
-            if self.use_ddp:
-                tdist.barrier() #Wait to sync processes
-
             raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
 
         datasetInfo = self.validator.getDatasetInfo()
         if not datasetInfo:
-            if self.local_rank == 0:
-                self.config = self._reset_dataset_state()
-                self._save_config()
-
-            if self.use_ddp:
-                tdist.barrier()
-
             raise RuntimeError("[CONFIG] Missing dataset. Initialization required. Run: python3 main.py init")
 
         self.config["dataset"]["initialized"] = True
@@ -158,39 +153,57 @@ class Config:
         if self.local_rank == 0:
             self._save_config()
 
-        if self.use_ddp:
-            tdist.barrier()
-
         return True
     
-    def _load_config(self):
-        default_config = self._get_default_config()
+    def _precheck_config(self):
+        if self.local_rank == 0:
+            default_config = self._get_default_config()
 
-        if self.configFile.exists():
-            with open(self.configFile, 'r') as f:
-                loaded_config = json.load(f)
+            if self.configFile.exists():
+                try:
+                    with open(self.configFile, 'r') as f:
+                        loaded_config = json.load(f)
+                except (json.JSONDecodeError, ValueError):
+                    print("[CONFIG] Config file corrupted or empty. Regenerating default config.")
 
-            updated_config = self._merge_dicts(default_config, loaded_config)
+                    with open(self.configFile, 'w') as f:
+                        json.dump(default_config, f, indent=4)
 
-            if updated_config != loaded_config:
-                if self.local_rank == 0:
+                    return default_config
+                
+                if not isinstance(loaded_config, dict):
+                    print("[CONFIG] Config file corrupted. Regenerating default config.")
+
+                    with open(self.configFile, 'w') as f:
+                        json.dump(default_config, f, indent=4)
+
+                    return default_config
+
+                updated_config = self._merge_dicts(default_config, loaded_config)
+
+                if updated_config != loaded_config:
                     with open(self.configFile, 'w') as f:
                         json.dump(updated_config, f, indent=4)
 
-                if self.use_ddp:
-                    tdist.barrier()
-
-            return updated_config
-
-        else:
-            if self.local_rank == 0:
+                return updated_config
+            else:
+                print("[CONFIG] Generating default config file!")
                 with open(self.configFile, 'w') as f:
                     json.dump(default_config, f, indent=4)
 
-            if self.use_ddp:
-                    tdist.barrier()
+                return default_config
+    
+    def _load_config(self):
+        if self.configFile.exists():
+            try:
+                with open(self.configFile, 'r') as f:
+                    loaded_config = json.load(f)
+            except Exception as e:
+                raise RuntimeError("[CONFIG] Config file corrupted. Run initialization again with: python3 main.py init")
 
-            return default_config
+            return loaded_config
+        else:
+            raise RuntimeError("[CONFIG] Config file missing. Run initialization again with: python3 main.py init")
         
     def _merge_dicts(self, default, loaded):
         for key, value in default.items():
@@ -229,8 +242,12 @@ class Config:
                     })
 
     def _save_config(self):
-        with open(self.configFile, 'w') as f:
+        tmp_path = self.configFile.with_suffix(".tmp")
+
+        with open(tmp_path, 'w') as f:
             json.dump(self.config, f, indent=4)
+
+        os.replace(tmp_path, self.configFile)
     
     @property
     def DEVICE(self):

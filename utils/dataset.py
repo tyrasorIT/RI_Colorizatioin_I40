@@ -77,8 +77,11 @@ def _downloadCOCOBySplit(split: str = "train"):
         print(f"[COCO] {split} already available")
         return str(extractPath)
     
-    print(f"[COCO] Downloading {split}2017...")
-    _downloadFileResumable(url, zipPath)
+    if zipPath.exists():
+        print(f"[COCO] Compressed dataset exists {split}2017...")
+    else:
+        print(f"[COCO] Downloading {split}2017...")
+        _downloadFileResumable(url, zipPath)
 
     print(f"[COCO] Extracting {split}2017...")
     # with zipfile.ZipFile(zipPath, 'r') as zipRef:

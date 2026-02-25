@@ -55,7 +55,6 @@ def GANTrainer(device, trainData, testData, generatorType, batchSize = 64, numEp
     for epoch in range(numEpochs):
         if CONFIG.USE_DDP:
             trainSampler.set_epoch(epoch)
-            testSampler.set_epoch(epoch)
 
         model.train()
         train_meters = create_loss_meters()
@@ -148,7 +147,11 @@ def GANTrainer(device, trainData, testData, generatorType, batchSize = 64, numEp
             f.write(f"LocalModelPath: {CONFIG.MODEL_PATH}\n")
             f.write(f"Total paremeters: {countParameters(model, trainable_only=False)}\n")
             f.write(f"Trainable parameters: {countParameters(model, trainable_only=True)}\n")
-            f.write(f"Training time: {sum(epochTimes)}")
+            fullTimeSeconds = sum(epochTimes)
+            fullTime_H = fullTimeSeconds // 3600
+            fullTime_m = (fullTimeSeconds % 3600) // 60
+            fullTime_s = int(fullTimeSeconds % 60)
+            f.write(f"Training time: {int(fullTime_H)}h {int(fullTime_m)}m {fullTime_s}s")
 
         shutil.copy(os.path.join(CONFIG.RUN_DIR, "experiment_info.txt"), CONFIG.MODEL_DIR)
         shutil.copy(os.path.join(CONFIG.RUN_DIR, "metrics.csv"), CONFIG.MODEL_DIR)
