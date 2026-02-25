@@ -38,8 +38,9 @@ def create_loss_meters():
 
 def update_losses(model, loss_meter_dict, count):
     for loss_name, loss_meter in loss_meter_dict.items():
-        loss = getattr(model, loss_name)
-        loss_meter.update(loss.item(), count=count)
+        if hasattr(model, loss_name):
+            loss = getattr(model, loss_name)
+            loss_meter.update(loss.item(), count=count)
 
 def log_results(loss_meter_dict):
     for loss_name, loss_meter in loss_meter_dict.items():

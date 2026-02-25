@@ -10,20 +10,28 @@ import PIL
 from torchvision import transforms
 from external.colorization.colorizers import *
 from config import CONFIG
-from datetime import datetime
+import warnings
 
 def lab_to_rgb(L, ab):
     """
     Takes a batch of images
     """
+    L = torch.clamp(L, -1., 1.)
+    ab = torch.clamp(ab, -1., 1.)
+
+    L = L.detach().cpu()
+    ab = ab.detach().cpu()
 
     L = (L + 1.) * 50.
     ab = ab * 110.
-    Lab = torch.cat([L, ab], dim=1).permute(0, 2, 3, 1).cpu().numpy()
+    Lab = torch.cat([L, ab], dim=1)
+    Lab = Lab.permute(0, 2, 3, 1).cpu().numpy()
     rgb_imgs = []
-    for img in Lab:
-        img_rgb = color.lab2rgb(img)
-        rgb_imgs.append(img_rgb)
+    with warnings.catch_warnings(): #Annoying out of bound warnings #Under 1%
+        warnings.simplefilter("ignore", UserWarning)
+        for img in Lab:
+            img_rgb = color.lab2rgb(img)
+            rgb_imgs.append(img_rgb)
     return np.stack(rgb_imgs, axis=0)
 
 def show_results3(device, model: torch.nn.Module, data, idx, size, output_dir=CONFIG.RESULTS_DIR):

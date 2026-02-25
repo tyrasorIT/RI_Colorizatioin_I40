@@ -2,12 +2,9 @@ from typing import List
 from utils.dataset import COCO_LAB
 import torch
 import torch.distributed as tdist
-from datetime import datetime
-from torch import nn
-from models.ResNetUNetColorization import ResNetUNetColorization
 from pretrainers.pretrainGenerator import pretrainGenerator
 from utils.results import colorizeFromImage, show_results3, show_results4
-from utils.model import saveModel, buildResNetFastAi, loadModelCheckpoint
+from utils.model import saveModel, loadModelCheckpoint
 from models.GANColorization import GANColorization
 from external.colorization.colorizers import eccv16, siggraph17
 from config import CONFIG
@@ -59,15 +56,14 @@ if __name__ == "__main__":
 
         if CONFIG.MODE == CONFIG.RunMode.TRAIN:
             print("[MAIN] In train mode!")
-            model = GANTrainer(CONFIG.DEVICE, trainData, testData, batchSize = CONFIG.BATCH_SIZE, numEpochs = CONFIG.NUM_EPOCH, displayEvery=100, pretrainedGeneratorPath=CONFIG.PRETRAINED_GENERATOR_PATH, generatorType=CONFIG.GENERATOR_TYPE)
+            model = GANTrainer(CONFIG.DEVICE, trainData, testData, generatorType=CONFIG.GENERATOR_TYPE, batchSize = CONFIG.BATCH_SIZE, numEpochs = CONFIG.NUM_EPOCH, displayEvery=100)
             if CONFIG.LOCAL_RANK == 0:
-                saveModel(model.module, CONFIG.NUM_EPOCH) 
-                show_results3(CONFIG.DEVICE, model.module, testData, idx = 1, size=CONFIG.IMAGE_SIZE)
+                saveModel(model.module) 
         elif CONFIG.MODE == CONFIG.RunMode.PRETRAIN:
             print("[MAIN] In pretrain mode!")
             model = pretrainGenerator(CONFIG.DEVICE, CONFIG.GENERATOR_TYPE, trainData, batchSize=CONFIG.BATCH_SIZE, numEpochs=CONFIG.NUM_EPOCH)
             if CONFIG.LOCAL_RANK == 0:
-                saveModel(model.module, CONFIG.NUM_EPOCH)
+                saveModel(model.module)
         elif CONFIG.MODE == CONFIG.RunMode.INFER:
             print("[MAIN] In inferance mode!")
             if CONFIG.LOCAL_RANK == 0:

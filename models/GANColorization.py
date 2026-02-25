@@ -7,10 +7,11 @@ from .discriminators import PatchDiscriminator
 from losses.customGANLoss import customGANLoss
 from torch import optim
 from config import Config # Just for generator types
-from torchmetrics.functional import peak_signal_noise_ratio
-from torchmetrics.functional import structural_similarity_index_measure
+from skimage.metrics import peak_signal_noise_ratio
+from skimage.metrics import structural_similarity
 import torch.nn.functional as tfunc
 from utils.results import lab_to_rgb
+import numpy as np
 
 class GANColorization(nn.Module):
     def __init__(self, device, generatorType=None, pretrained=False, pretrainedPath=None, lrGenerator=2e-4, lrDiscriminator=2e-4, beta1=0.5, beta2=0.999, lambdaL1=100.):
@@ -86,14 +87,11 @@ class GANColorization(nn.Module):
         self.generatorOptimizer.step()
 
     def compute_metrics(self):
-        fake_lab = torch.cat([self.L, self.fakeColor], dim=1)
-        real_lab = torch.cat([self.L, self.ab], dim=1)
+        fake_rgb = lab_to_rgb(self.L, self.fakeColor)[0]
+        real_rgb = lab_to_rgb(self.L, self.ab)[0]
 
-        fake_rgb = lab_to_rgb(fake_lab)
-        real_rgb = lab_to_rgb(real_lab)
-
-        fake_rgb = torch.clamp(fake_rgb, 0., 1.)
-        real_rgb = torch.clamp(real_rgb, 0., 1.)
+        fake_rgb = np.clip(fake_rgb, 0, 1)
+        real_rgb = np.clip(real_rgb, 0, 1)
 
         self.psnr = peak_signal_noise_ratio(fake_rgb, real_rgb, data_range=1.0)
-        self.ssim = structural_similarity_index_measure(fake_rgb, real_rgb, data_range=1.0)
+        self.ssim = structural_similarity(fake_rgb, real_rgb, channel_axis=-1, data_range=1.0)
