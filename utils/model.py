@@ -8,7 +8,7 @@ from typing import Optional
 
 def saveModel(model: torch.nn.Module, inferOnly=True):
 
-    checkpoint = {"generator_state_dict": model.state_dict()}
+    checkpoint = {"model_state_dict": model.state_dict()}
 
     if not inferOnly:
         if hasattr(model, "generatorNet"):

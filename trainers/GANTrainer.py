@@ -151,5 +151,6 @@ def GANTrainer(device, trainData, testData, generatorType, batchSize = 64, numEp
             f.write(f"Training time: {sum(epochTimes)}")
 
         shutil.copy(os.path.join(CONFIG.RUN_DIR, "experiment_info.txt"), CONFIG.MODEL_DIR)
+        shutil.copy(os.path.join(CONFIG.RUN_DIR, "metrics.csv"), CONFIG.MODEL_DIR)
 
     return model
