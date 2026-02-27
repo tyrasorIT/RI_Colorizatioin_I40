@@ -20,6 +20,10 @@ class Config:
         RESNET = "resnet"
         FASTAI = "fastai"
 
+    class InferMode(Enum):
+        TRAINED = "trained"
+        INDUSTRIAL = "industrial"
+
     def __init__(self, configFile: str = ".config.json"):
         self.use_ddp = False
         self.local_rank = 0 #Because of tqdm
@@ -68,9 +72,14 @@ class Config:
         trainParser.add_argument("--pretrainGeneratorPath", type=str, required=False, help="Path to the pretrained generator")
         
         inferParser = subparsers.add_parser("infer")
-        inferParser.add_argument("--imSize", type=int, required=True, choices=[64, 96, 128, 256], help="Image size")
-        inferParser.add_argument("--modelPath", type=str, required=True, help="Path of the model to infer")
-        inferParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai"], help="Generator type to use for inferance")
+        subInferParser = inferParser.add_subparsers(dest="inferMode", required=True, help="Inferance subcommand")
+
+        trainedInferParser = subInferParser.add_parser("trained")
+        trainedInferParser.add_argument("--imSize", type=int, required=True, choices=[64, 96, 128, 256], help="Image size")
+        trainedInferParser.add_argument("--modelPath", type=str, required=True, help="Path of the model to infer")
+        trainedInferParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai"], help="Generator type to use for inferance")
+
+        industrialInferParser = subInferParser.add_parser("industrial")
 
         args = parser.parse_args()
 
@@ -78,6 +87,8 @@ class Config:
     
     def _set_properties_from_arguments(self):
         self.mode = self.RunMode(self.args.mode)
+        if hasattr(self.args.infer, "inferMode"):
+            self.inferMode = self.InferMode(self.args.infer.inferMode)
         if hasattr(self.args, "generatorType"):
             self.generatorType = self.GeneratorTypes(self.args.generatorType)
         if hasattr(self.args, "imSize"):
@@ -264,6 +275,10 @@ class Config:
     @property
     def MODE(self):
         return self.mode
+    
+    @property
+    def INFER_MODE(self):
+        return self.inferMode
     
     @property
     def GENERATOR_TYPE(self):

@@ -9,7 +9,10 @@ import time
 import PIL
 from torchvision import transforms
 from external.colorization.colorizers import *
+from utils.model import loadModelCheckpoint
+from models.GANColorization import GANColorization
 from config import CONFIG
+from typing import List
 import warnings
 
 def lab_to_rgb(L, ab):
@@ -170,7 +173,7 @@ def visualize(model: torch.nn.Module, data, num_images: int = 5, output_dir="./r
     fig.savefig(output_path)
     plt.close()
 
-def colorizeFromImage(device, model: torch.nn.Module, imagePath: str , size, output_dir="./results/examples"):
+def _colorizeFromImage(device, model: torch.nn.Module, imagePath: str , size, output_dir="./results/examples"):
     os.makedirs(output_dir, exist_ok=True)
 
     img = PIL.Image.open(imagePath)
@@ -203,3 +206,34 @@ def colorizeFromImage(device, model: torch.nn.Module, imagePath: str , size, out
     output_path = os.path.join(output_dir, f"result_{time.time()}.png")
     plt.savefig(output_path, bbox_inches="tight", dpi=150)
     plt.close()
+
+def displaySelectedResults(device, modelPath: str, testData, idxList: List[int], size, generatorType=None):
+
+    metadata = loadModelCheckpoint(device, modelPath, None, metadataOnly=True)
+    #If metadata exists use from metadata otherwise use from input
+    if metadata:
+        generatorType=CONFIG.GeneratorTypes(metadata["generator_type"])
+
+    model_wrapper = GANColorization(device, generatorType=generatorType)
+    
+    loadModelCheckpoint(device, modelPath, model_wrapper)
+    model_wrapper.eval()
+    model_wrapper.generatorNet.eval()
+    
+    for i in idxList:
+        show_results3(device, model_wrapper, testData, idx=i, size=size)
+
+def displayIndustrialModelResults(device, testData, idxList: List[int], size):
+    colorizer_eccv16 = eccv16(pretrained=True).to(device)
+    colorizer_siggraph17 = siggraph17(pretrained=True).to(device)
+
+    for i in idxList:
+        show_results4(device, colorizer_eccv16, colorizer_siggraph17, testData, idx=i, size=size)
+
+
+def colorizeFromImage(device, modelPath: str, imagePath: str, size):
+    model = GANColorization(device, generatorNet=CONFIG.GeneratorTypes.RESNET)
+
+    loadModelCheckpoint(device, modelPath, model)
+
+    _colorizeFromImage(device, model, imagePath, size)

@@ -1,44 +1,11 @@
-from typing import List
-from utils.dataset import COCO_LAB
 import torch
 import torch.distributed as tdist
+from utils.dataset import COCO_LAB
 from pretrainers.pretrainGenerator import pretrainGenerator
-from utils.results import colorizeFromImage, show_results3, show_results4
-from utils.model import saveModel, loadModelCheckpoint
-from models.GANColorization import GANColorization
-from external.colorization.colorizers import eccv16, siggraph17
-from config import CONFIG
 from trainers.GANTrainer import GANTrainer
-
-def displaySelectedResults3(device, modelPath: str, testData, idxList: List[int], size, generatorType=None):
-
-    metadata = loadModelCheckpoint(device, modelPath, None, metadataOnly=True)
-    #If metadata exists use from metadata otherwise use from input
-    if metadata:
-        generatorType=CONFIG.GeneratorTypes(metadata["generator_type"])
-
-    model_wrapper = GANColorization(device, generatorType=generatorType)
-    
-    loadModelCheckpoint(device, modelPath, model_wrapper)
-    model_wrapper.eval()
-    model_wrapper.generatorNet.eval()
-    
-    for i in idxList:
-        show_results3(device, model_wrapper, testData, idx=i, size=size)
-
-def colorizeFromImage(device, modelPath: str, imagePath: str, size):
-    model = GANColorization(device, generatorNet=CONFIG.GeneratorTypes.RESNET)
-
-    loadModelCheckpoint(device, modelPath, model)
-
-    colorizeFromImage(device, model, imagePath, size)
-
-def displayIndustrialModelResults(device, testData, idxList: List[int], size):
-    colorizer_eccv16 = eccv16(pretrained=True).to(device)
-    colorizer_siggraph17 = siggraph17(pretrained=True).to(device)
-
-    for i in idxList:
-        show_results4(device, colorizer_eccv16, colorizer_siggraph17, testData, idx=i, size=size)
+from utils.results import displaySelectedResults, displayIndustrialModelResults
+from utils.model import saveModel
+from config import CONFIG
 
 if __name__ == "__main__":
 
@@ -66,17 +33,14 @@ if __name__ == "__main__":
                 saveModel(model.module)
         elif CONFIG.MODE == CONFIG.RunMode.INFER:
             print("[MAIN] In inferance mode!")
-            if CONFIG.LOCAL_RANK == 0:
-                displaySelectedResults3(CONFIG.DEVICE, CONFIG.MODEL_PATH, testData, CONFIG.IMG_TO_DISPLAY, size=CONFIG.IMAGE_SIZE)
 
-            # elif mode == 4:
-            #     if CONFIG.LOCAL_RANK == 0:
-            #         imagePath = "examples/example1_bw.jpeg"
-            #         colorizeFromImage(CONFIG.DEVICE, modelPath, imagePath, size=imSize)
-
-            # elif mode == 8:
-            #     if CONFIG.LOCAL_RANK == 0:
-            #         displayIndustrialModelResults(CONFIG.DEVICE, testData, fullRangeToDisplay, imSize)
+            if CONFIG.INFER_MODE == CONFIG.InferMode.TRAINED:
+                print("[MAIN] Trained model inferance mode!")
+                if CONFIG.LOCAL_RANK == 0:
+                    displaySelectedResults(CONFIG.DEVICE, CONFIG.MODEL_PATH, testData, CONFIG.IMG_TO_DISPLAY, size=CONFIG.IMAGE_SIZE)
+            elif CONFIG.INFER_MODE == CONFIG.InferMode.INDUSTRIAL:
+                if CONFIG.LOCAL_RANK == 0:
+                    displayIndustrialModelResults(CONFIG.DEVICE, testData, CONFIG.IMG_TO_DISPLAY, CONFIG.IMAGE_SIZE)
 
         if CONFIG.USE_DDP:
             tdist.destroy_process_group()
