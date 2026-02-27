@@ -9,7 +9,6 @@ import os
 from tqdm import tqdm
 from utils.results import visualize
 from utils.model import countParameters
-from config import CONFIG
 import shutil
 
 def GANTrainer(device, trainData, testData, generatorType, batchSize = 64, numEpochs = 50, displayEvery=200):

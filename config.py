@@ -80,6 +80,7 @@ class Config:
         trainedInferParser.add_argument("--generatorType", type=str, required=True, choices=["resnet", "fastai"], help="Generator type to use for inferance")
 
         industrialInferParser = subInferParser.add_parser("industrial")
+        industrialInferParser.add_argument("--imSize", type=int, required=True, choices=[64, 96, 128, 256], help="Image size")
 
         args = parser.parse_args()
 
@@ -87,8 +88,8 @@ class Config:
     
     def _set_properties_from_arguments(self):
         self.mode = self.RunMode(self.args.mode)
-        if hasattr(self.args.infer, "inferMode"):
-            self.inferMode = self.InferMode(self.args.infer.inferMode)
+        if hasattr(self.args, "inferMode"):
+            self.inferMode = self.InferMode(self.args.inferMode)
         if hasattr(self.args, "generatorType"):
             self.generatorType = self.GeneratorTypes(self.args.generatorType)
         if hasattr(self.args, "imSize"):
@@ -122,8 +123,9 @@ class Config:
             # os.makedirs(self.modelDir, exist_ok=True)
             self.modelPath = os.path.join(self.modelDir, modelPath)
         elif self.mode == self.RunMode.INFER:
-            self.modelPath = Path(self.args.modelPath)
-            infareDir = f"infer_{formattedTime}"
+            if self.inferMode == self.InferMode.TRAINED:
+                self.modelPath = Path(self.args.modelPath)
+            infareDir = f"run_infer_{formattedTime}"
             resultsDir = os.path.join(resultsDir, infareDir)
 
         self.resultsDir = resultsDir

@@ -3,7 +3,7 @@ import torch.distributed as tdist
 from utils.dataset import COCO_LAB
 from pretrainers.pretrainGenerator import pretrainGenerator
 from trainers.GANTrainer import GANTrainer
-from utils.results import displaySelectedResults, displayIndustrialModelResults
+from utils.display import displaySelectedResults, displayIndustrialModelResults
 from utils.model import saveModel
 from config import CONFIG
 
@@ -39,6 +39,7 @@ if __name__ == "__main__":
                 if CONFIG.LOCAL_RANK == 0:
                     displaySelectedResults(CONFIG.DEVICE, CONFIG.MODEL_PATH, testData, CONFIG.IMG_TO_DISPLAY, size=CONFIG.IMAGE_SIZE)
             elif CONFIG.INFER_MODE == CONFIG.InferMode.INDUSTRIAL:
+                print("[MAIN] Industrial model inferance mode!")
                 if CONFIG.LOCAL_RANK == 0:
                     displayIndustrialModelResults(CONFIG.DEVICE, testData, CONFIG.IMG_TO_DISPLAY, CONFIG.IMAGE_SIZE)
 
