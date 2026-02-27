@@ -100,7 +100,7 @@ class Config:
             self.numEpoch = self.args.numEpoch
     
     def _set_out_filenames(self):
-        formattedTime = datetime.now().strftime("%d%m%Y%H%M")
+        formattedTime = datetime.now().strftime("%d%m%Y%H%M%S")
         resultsDir = Path(self.config["output"]["resultsDir"])
 
         if self.mode == self.RunMode.TRAIN:

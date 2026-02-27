@@ -4,6 +4,7 @@ from typing import List
 from utils.model import loadModelCheckpoint
 from utils.results import show_results3, show_results4, _colorizeFromImage
 from external.colorization.colorizers import *
+from tqdm import tqdm
 import os
 
 def displaySelectedResults(device, modelPath: str, testData, idxList: List[int], size, generatorType=None):
@@ -19,7 +20,7 @@ def displaySelectedResults(device, modelPath: str, testData, idxList: List[int],
     model_wrapper.eval()
     model_wrapper.generatorNet.eval()
     
-    for i in idxList:
+    for i in tqdm(idxList, disable=(CONFIG.LOCAL_RANK != 0), dynamic_ncols=True, desc="Inferance: "):
         show_results3(device, model_wrapper, testData, idx=i, size=size)
 
     with open(os.path.join(CONFIG.RESULTS_DIR, "experiment_info.txt"), "a") as f:
@@ -36,7 +37,7 @@ def displayIndustrialModelResults(device, testData, idxList: List[int], size):
     colorizer_eccv16 = eccv16(pretrained=True).to(device)
     colorizer_siggraph17 = siggraph17(pretrained=True).to(device)
 
-    for i in idxList:
+    for i in tqdm(idxList, disable=(CONFIG.LOCAL_RANK != 0), dynamic_ncols=True, desc="Inferance: "):
         show_results4(device, colorizer_eccv16, colorizer_siggraph17, testData, idx=i, size=size)
 
     with open(os.path.join(CONFIG.RESULTS_DIR, "experiment_info.txt"), "a") as f:
