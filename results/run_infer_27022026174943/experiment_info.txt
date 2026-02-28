@@ -1,0 +1,6 @@
+Mode: infer
+SubMode: industrial
+Image Size: 256
+Device: Quadro RTX 6000
+Torch Version: 1.10.2+cu102
+CUDA Version: 10.2

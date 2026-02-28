@@ -1,0 +1,15 @@
+Mode: train
+Generator Type: resnet
+Pretrained generator used: pretrainedModelCheckpoints/model_250220260413/generator_pretrained_resnet_epoch20_250220260413.pth
+Image Size: 128
+Batch Size: 384
+Epochs: 100
+Device: Quadro RTX 6000
+GPU Count: 3
+Per GPU peak memory: 16870.3 MB
+Torch Version: 1.10.2+cu102
+CUDA Version: 10.2
+LocalModelPath: modelCheckpoints/model_260220260148/pretrained_resnet_epoch100_260220260148.pth
+Total paremeters: 17109091
+Trainable parameters: 14343458
+Training time: 3h 25m 57s

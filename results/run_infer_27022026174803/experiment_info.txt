@@ -1,0 +1,8 @@
+Mode: infer
+SubMode: trained
+Generator Type: resnet
+Image Size: 256
+Device: Quadro RTX 6000
+Torch Version: 1.10.2+cu102
+CUDA Version: 10.2
+LocalModelPath: modelCheckpoints/model_260220260148/pretrained_resnet_epoch100_260220260148.pth

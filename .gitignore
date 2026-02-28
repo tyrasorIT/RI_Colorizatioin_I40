@@ -10,4 +10,5 @@
 
 #Ignore results and datasets
 **/data/
-**/results/
+**/midtrain_viz/
+**/midval_viz/

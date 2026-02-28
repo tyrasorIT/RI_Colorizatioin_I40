@@ -1,0 +1,15 @@
+Mode: train
+Generator Type: fastai
+Pretrained generator used: pretrainedModelCheckpoints/model_260220262123/generator_pretrained_fastai_epoch20_260220262123.pth
+Image Size: 128
+Batch Size: 256
+Epochs: 100
+Device: Quadro RTX 6000
+GPU Count: 3
+Per GPU peak memory: 16573.2 MB
+Torch Version: 1.10.2+cu102
+CUDA Version: 10.2
+LocalModelPath: modelCheckpoints/model_270220260055/pretrained_fastai_epoch100_270220260055.pth
+Total paremeters: 33865305
+Trainable parameters: 31099672
+Training time: 6h 10m 26s
